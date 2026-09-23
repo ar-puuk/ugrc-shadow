@@ -1,0 +1,22 @@
+{
+  "style_url": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteLabels/VectorTileServer/resources/styles/root.json",
+  "output": "UGRC_LiteLabels_dark.json",
+  "background": null,
+  "rules": [
+    { "note": "road names",           "match": { "type": "symbol", "source_layer": "^Roads" },                          "paint": { "text-color": "@label", "text-halo-color": "@halo" } },
+    { "note": "minor road names",     "match": { "type": "symbol", "source_layer": "^Roads", "id": "Minor Rds" },       "paint": { "text-color": "@label_minor" } },
+    { "note": "shield route numbers: shield icon itself is darkened separately (see sprites.py); recolor the number to read against the now-dark shield",
+      "match": { "type": "symbol", "source_layer": "^Roads", "id": "/label/(Interstates|US Highways|State Highways)" }, "paint": { "text-color": "@shield_text" } },
+
+    { "note": "cities/towns",         "match": { "type": "symbol", "source_layer": "^CitiesTownsLocations" },           "paint": { "text-color": "@label_major", "text-halo-color": "@halo" } },
+    { "note": "small places",         "match": { "type": "symbol", "source_layer": "^CitiesTownsLocations", "id": "- minor$" }, "paint": { "text-color": "@label" } },
+    { "note": "big places",           "match": { "type": "symbol", "source_layer": "^CitiesTownsLocations", "id": "- major$" }, "paint": { "text-color": "@label_city_major" } },
+    { "note": "municipality names",   "match": { "type": "symbol", "source_layer": "^muni_pts$" },                      "paint": { "text-color": "@label_city_major", "text-halo-color": "@halo" } },
+
+    { "note": "counties + anno",      "match": { "type": "symbol", "source_layer": "^(Counties|AnnoPoints)$" },         "paint": { "text-color": "@label_region", "text-halo-color": "@halo" } },
+    { "note": "addresses",            "match": { "type": "symbol", "source_layer": "^AddressPoints$" },                 "paint": { "text-color": "@label_minor", "text-halo-color": "@halo", "text-halo-width": 1 } },
+
+    { "note": "water labels",         "match": { "type": "symbol", "source_layer": "(?i)(lake|river|stream|water|reservoir|bay)" }, "paint": { "text-color": "@label_water", "text-halo-color": "@halo_water" } },
+    { "note": "park/forest labels",   "match": { "type": "symbol", "source_layer": "(?i)(park|monument|forest|wilderness|recreation)" }, "paint": { "text-color": "@label_park", "text-halo-color": "@halo" } }
+  ]
+}

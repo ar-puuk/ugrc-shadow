@@ -1,0 +1,48 @@
+{
+  "style_url": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteBase/VectorTileServer/resources/styles/root.json",
+  "output": "UGRC_LiteBase_dark.json",
+  "background": null,
+  "rules": [
+    { "note": "neighbouring states",  "match": { "source_layer": "^WesternStates$" }, "paint": { "fill-color": "@earth", "fill-outline-color": "@boundary_faint" } },
+    { "note": "Utah softening veil",  "match": { "source_layer": "^Utah$" },          "paint": { "fill-color": "@earth" } },
+
+    { "note": "local parks/golf/cemeteries", "match": { "source_layer": "^(Cemeteries_Poly|GolfCourses|ParksLocal)$" },
+      "paint": { "fill-color": { "color": "@park", "alpha": 0.9 }, "fill-outline-color": "@park_outline" } },
+    { "note": "nat/state park bands", "match": { "source_layer": "^UtahParksAndMonuments$", "type": "line" }, "paint": { "line-color": "@park_band" } },
+    { "note": "nat/state park edge",  "match": { "source_layer": "^UtahParksAndMonuments$", "type": "line", "id": "/1$" }, "paint": { "line-color": "@park_outline" } },
+    { "note": "ski areas",            "match": { "source_layer": "^SkiAreaBoundaries$" }, "paint": { "fill-outline-color": "@boundary_faint" } },
+
+    { "note": "contours",             "match": { "source_layer": "^Contours" }, "paint": { "line-color": "@contour", "line-opacity": 0.3 } },
+    { "note": "index contours",       "match": { "source_layer": "^Contours", "id": "/(500|1000)(_\\d+)?$" }, "paint": { "line-color": "@contour_index" } },
+
+    { "note": "urban area tint",      "match": { "source_layer": "^Municipalities_Carto:2$", "type": "fill" }, "paint": { "fill-color": "@urban_tint" } },
+    { "note": "urban class halos (keep hue)", "match": { "source_layer": "^Municipalities_Carto:2$", "type": "line" }, "paint": { "line-color": { "tint": { "l": 0.40, "s_mult": 0.45 } } } },
+    { "note": "municipal boundary",   "match": { "source_layer": "^Municipalities_Carto:1$" }, "paint": { "line-color": "@boundary_muni" } },
+
+    { "note": "any water (generic)",  "match": { "source_layer": "(?i)(water|lake|river|reservoir|canal)", "type": "fill" }, "paint": { "fill-color": "@water", "fill-outline-color": "@water_outline" } },
+    { "note": "rivers/lakes polys",   "match": { "source_layer": "^(UtahMajorRiversPoly|LakesNHDHighRes.*|GSLWaterLevel.*)$" }, "paint": { "fill-color": "@water", "fill-outline-color": "@water_outline" } },
+    { "note": "GSL evaporation ponds","match": { "source_layer": "^LakesNHDHighRes", "id": "Great Salt Lake" }, "paint": { "fill-color": "@water_shallow" } },
+    { "note": "streams",              "match": { "source_layer": "^StreamsNHD" }, "paint": { "line-color": "@water_line" } },
+
+    { "note": "county lines",         "match": { "source_layer": "^Counties$", "type": "line" }, "paint": { "line-color": "@boundary" } },
+    { "note": "county solid bands",   "match": { "source_layer": "^Counties$", "type": "line", "paint": { "line-color": "^#[A-F][0-9A-F]" } }, "paint": { "line-color": "@boundary_halo" } },
+
+    { "note": "buildings (if present)", "match": { "source_layer": "(?i)build", "type": "fill" }, "paint": { "fill-color": { "color": "#111111", "alpha": 0.5 }, "fill-outline-color": "@road_casing" } },
+    { "note": "railroads",            "match": { "source_layer": "^Railroads$" }, "paint": { "line-color": "@rail", "icon-color": "@rail" } },
+    { "note": "trails outer",         "match": { "source_layer": "^TrailsAndPathways$", "id": "/1$" }, "paint": { "line-color": "@trail_outer" } },
+    { "note": "trails inner",         "match": { "source_layer": "^TrailsAndPathways$", "id": "/0$" }, "paint": { "line-color": "@trail_inner" } },
+
+    { "note": "interstates",          "match": { "source_layer": "^Roads - white version$", "type": "line", "id": "/Interstates" },                                        "paint": { "line-color": "@road_highway" } },
+    { "note": "US/State highways",    "match": { "source_layer": "^Roads - white version$", "type": "line", "id": "/(US Highways|State Highways)" },                     "paint": { "line-color": "@road_major" } },
+    { "note": "ramps/collectors",     "match": { "source_layer": "^Roads - white version$", "type": "line", "id": "/Ramps and Collectors" },                              "paint": { "line-color": "@road_major" } },
+    { "note": "fed-aid + major local","match": { "source_layer": "^Roads - white version$", "type": "line", "id": "/(Other Federal Aid Roads|Major Local Roads Paved)" }, "paint": { "line-color": "@road_medium" } },
+    { "note": "major local unpaved",  "match": { "source_layer": "^Roads - white version$", "type": "line", "id": "/Major Local Roads Not Paved" },                       "paint": { "line-color": "@road_unpaved" } },
+    { "note": "local roads",          "match": { "source_layer": "^Roads - white version$", "type": "line", "id": "/Local Roads" },                                       "paint": { "line-color": "@road_minor" } },
+    { "note": "road casings (/1)",    "match": { "source_layer": "^Roads - white version$", "type": "line", "id": "/1$" },                                                "paint": { "line-color": "@road_casing" } },
+
+    { "note": "transit casing (/2)",  "match": { "source_layer": "^(CommuterRailRoutes_UTA|UTA_Trax_SingleLine)$", "id": "/2$" }, "paint": { "line-color": "@transit_casing" } },
+    { "note": "transit fill (/1)",    "match": { "source_layer": "^(CommuterRailRoutes_UTA|UTA_Trax_SingleLine)$", "id": "/1$" }, "paint": { "line-color": "@transit_fill" } },
+    { "note": "transit colour dash (keep hue)", "match": { "source_layer": "^(CommuterRailRoutes_UTA|UTA_Trax_SingleLine)$", "id": "/0$" }, "paint": { "line-color": { "tint": { "l": 0.45, "s_mult": 0.40 } } } },
+    { "note": "transit other",        "match": { "source_layer": "^UTA_Trax_SingleLine$", "id": "<all other values>" }, "paint": { "line-color": "@transit_other" } }
+  ]
+}

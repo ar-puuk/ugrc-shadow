@@ -1,0 +1,48 @@
+{
+  "_about": [
+    "UGRC-specific palette tokens that have no equivalent in Protomaps' namedFlavor('dark') -",
+    "hillshade grades, road-class grays, rail/trail/transit, park/water/boundary variants, and",
+    "the extra label tier. These are layered on top of the tokens fetched live from Protomaps",
+    "at build time (see src/ugrc_shadow/palette.py) to form the final palette.",
+    "'shield_text' is new: the color for highway-shield route numbers once the shield icon",
+    "itself has been darkened (see src/ugrc_shadow/sprites.py) - needs to read clearly against",
+    "the shield's now-dark fill, so it sits lighter than the regular road-label grays."
+  ],
+
+  "urban_tint": "#2a2a2a",
+
+  "park_outline": "#22382f",
+  "park_band": "#1e3329",
+
+  "water_outline": "#3a3f4b",
+  "water_line": "#353a45",
+  "water_shallow": "#2a2e36",
+
+  "boundary_muni": "#4a505c",
+  "boundary_faint": "#3a3f4a",
+  "boundary_halo": "#30343c",
+
+  "contour": "#6b5a4e",
+  "contour_index": "#7a675a",
+
+  "hs_base": "#1f1f1f",
+  "hs_light": "#1c1c1c",
+  "hs_mid": "#191919",
+  "hs_dark": "#151515",
+  "hs_darkest": "#101010",
+
+  "road_casing": "#1a1a1a",
+  "road_medium": "#383838",
+  "road_unpaved": "#2e2e2e",
+  "rail": "#3a3a3a",
+  "trail_outer": "#262626",
+  "trail_inner": "#3d3d3d",
+  "transit_casing": "#1a1a1a",
+  "transit_fill": "#333333",
+  "transit_other": "#444444",
+
+  "label_city_major": "#8a8a8a",
+  "label_park": "#4e7a64",
+
+  "shield_text": "#c9c9c9"
+}

@@ -1,0 +1,58 @@
+{
+  "Labels/Roads - white version/Interstates": {
+    "x": 0,
+    "y": 0,
+    "width": 25,
+    "height": 27,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "Labels/Roads - Interstates and Ramps - white version/Interstates": {
+    "x": 25,
+    "y": 0,
+    "width": 25,
+    "height": 26,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "Labels/Roads - Interstates and Ramps - white version/US Highways": {
+    "x": 50,
+    "y": 0,
+    "width": 24,
+    "height": 23,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "Labels/Roads - white version/US Highways": {
+    "x": 0,
+    "y": 27,
+    "width": 24,
+    "height": 23,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "Labels/Roads - Interstates and Ramps - white version/State Highways - 2.3m-2.8k": {
+    "x": 24,
+    "y": 27,
+    "width": 28,
+    "height": 21,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "Labels/Roads - white version/State Highways": {
+    "x": 52,
+    "y": 27,
+    "width": 28,
+    "height": 21,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "Labels/Roads - Interstates and Ramps - white version/State Highways": {
+    "x": 0,
+    "y": 50,
+    "width": 28,
+    "height": 21,
+    "pixelRatio": 1,
+    "sdf": false
+  }
+}

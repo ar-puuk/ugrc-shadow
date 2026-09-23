@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UGRC Lite vs. Dark</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #1f1f1f; color: #ddd; font: 14px/1.4 system-ui, sans-serif; }
+  #maps { position: relative; width: 100%; height: 100vh; }
+  #before, #after { position: absolute; top: 0; bottom: 0; width: 100%; }
+  header {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 2;
+    padding: 10px 14px; background: linear-gradient(rgba(0,0,0,.55), transparent);
+    pointer-events: none;
+  }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; color: #fff; }
+  header p { margin: 2px 0 0; font-size: 12px; color: #ccc; }
+  footer {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 2;
+    padding: 6px 14px; font-size: 11px; color: #bbb; background: linear-gradient(transparent, rgba(0,0,0,.55));
+    text-align: center;
+  }
+  footer a { color: #ddd; }
+  #status {
+    position: absolute; z-index: 3; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    padding: 10px 16px; background: rgba(0,0,0,.7); border-radius: 6px; color: #eee; font-size: 13px;
+  }
+  #status[hidden] { display: none; }
+</style>
+</head>
+<body>
+<div id="maps">
+  <div id="before"></div>
+  <div id="after"></div>
+</div>
+<header>
+  <h1>UGRC Lite &mdash; original vs. dark</h1>
+  <p>Left: UGRC's live Lite basemap. Right: <a href="https://github.com/" style="color:#fff">ugrc-shadow</a>'s dark restyle. Drag the slider to compare.</p>
+</header>
+<footer>
+  Basemap data &amp; tiles: <a href="https://gis.utah.gov/" target="_blank" rel="noopener">UGRC</a>, via Esri ArcGIS Online.
+  Dark palette: <a href="https://protomaps.com/" target="_blank" rel="noopener">Protomaps</a> <code>@protomaps/basemaps</code> (BSD-3-Clause).
+</footer>
+<div id="status">Loading UGRC's live styles&hellip;</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.js"></script>
+<script>
+"use strict";
+
+const CENTER = [-111.891, 40.761]; // Salt Lake City
+const ZOOM = 10;
+
+// UGRC's 3 original services, fetched live (never snapshotted - see README).
+const LIGHT_SERVICE_URLS = {
+  VectorHillshade: "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/VectorHillshade/VectorTileServer/resources/styles/root.json",
+  LiteBase:        "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteBase/VectorTileServer/resources/styles/root.json",
+  LiteLabels:      "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteLabels/VectorTileServer/resources/styles/root.json",
+};
+
+// This tool's generated dark output, committed in this repo (see README "Using the output directly").
+const DARK_STYLE_URLS = {
+  VectorHillshade: "styles/UGRC_VectorHillshade_dark.json",
+  LiteBase:        "styles/UGRC_LiteBase_dark.json",
+  LiteLabels:      "styles/UGRC_LiteLabels_dark.json",
+};
+
+function withFormat(url) {
+  return url.includes("f=") ? url : url + (url.includes("?") ? "&" : "?") + "f=json";
+}
+
+async function fetchJson(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText} fetching ${url}`);
+  return resp.json();
+}
+
+/** The URL API percent-encodes "{" and "}" (e.g. glyphs' {fontstack}/{range} template),
+ * which MapLibre then fails to recognize as tokens. Python's urljoin doesn't have this
+ * problem (it does plain string joining, no re-encoding pass) - undo it here to match. */
+function joinUrl(base, rel) {
+  return new URL(rel, base).href.replace(/%7B/g, "{").replace(/%7D/g, "}");
+}
+
+/** JS port of src/ugrc_shadow/engine.py's absolutize(): rewrite Esri-relative sprite/glyphs/
+ * source paths into absolute, MapLibre-ready URLs. Mutates `style` in place. Only needed for
+ * the light side - the dark side's JSON is already absolutized by the Python build. */
+function absolutize(style, styleUrl) {
+  const base = styleUrl.split(/[?#]/)[0];
+  for (const key of ["sprite", "glyphs"]) {
+    if (typeof style[key] === "string") style[key] = joinUrl(base, style[key]);
+  }
+  for (const src of Object.values(style.sources || {})) {
+    if (typeof src.url === "string") {
+      let absUrl = joinUrl(base, src.url);
+      if (!absUrl.endsWith("/")) absUrl += "/";
+      if (src.type === "vector") {
+        src.tiles = [absUrl + "tile/{z}/{y}/{x}.pbf"];
+        delete src.url;
+      } else {
+        src.url = absUrl;
+      }
+    }
+    if (Array.isArray(src.tiles)) {
+      src.tiles = src.tiles.map((t) => joinUrl(base, t));
+    }
+  }
+}
+
+/** JS port of preview_ugrc_dark.R's ugrc_merge_styles(): combine several named styles (each
+ * with their own "esri" source) into one MapLibre style, namespacing sources and sprites so
+ * they can coexist, and dedup layer ids. List order (Object.keys order) = bottom -> top. */
+function mergeStyles(namedStyles, { glyphsFrom } = {}) {
+  const names = Object.keys(namedStyles);
+  const defaultSprite = names.includes(glyphsFrom) ? glyphsFrom : names[names.length - 1];
+
+  const sources = {};
+  const layers = [];
+  const sprites = [];
+  const idCounts = new Map();
+
+  for (const name of names) {
+    const st = namedStyles[name];
+    const srcNames = Object.keys(st.sources || {});
+    const srcMap = {};
+    for (const s of srcNames) {
+      srcMap[s] = srcNames.length === 1 ? name : `${name}_${s}`;
+      sources[srcMap[s]] = st.sources[s];
+    }
+    const isDefault = name === defaultSprite;
+    if (st.sprite) sprites.push({ id: isDefault ? "default" : name, url: st.sprite });
+
+    for (const ly of st.layers || []) {
+      const copy = JSON.parse(JSON.stringify(ly));
+      if (copy.source) copy.source = srcMap[copy.source];
+      const icon = copy.layout && copy.layout["icon-image"];
+      if (!isDefault && typeof icon === "string" && icon) {
+        copy.layout["icon-image"] = `${name}:${icon}`;
+      }
+      const n = idCounts.get(copy.id) || 0;
+      idCounts.set(copy.id, n + 1);
+      if (n > 0) copy.id = `${copy.id}__${n}`;
+      layers.push(copy);
+    }
+  }
+
+  sprites.sort((a, b) => (a.id === "default" ? -1 : 1) - (b.id === "default" ? -1 : 1));
+
+  return {
+    version: 8,
+    name: "UGRC merged",
+    sprite: sprites,
+    glyphs: namedStyles[defaultSprite].glyphs,
+    sources,
+    layers,
+  };
+}
+
+async function buildLightStyle() {
+  const styles = {};
+  for (const [name, url] of Object.entries(LIGHT_SERVICE_URLS)) {
+    const style = await fetchJson(withFormat(url));
+    absolutize(style, url);
+    styles[name] = style;
+  }
+  return mergeStyles(styles, { glyphsFrom: "LiteLabels" });
+}
+
+async function buildDarkStyle() {
+  const styles = {};
+  for (const [name, url] of Object.entries(DARK_STYLE_URLS)) {
+    styles[name] = await fetchJson(url);
+  }
+  return mergeStyles(styles, { glyphsFrom: "LiteLabels" });
+}
+
+async function main() {
+  const statusEl = document.getElementById("status");
+  try {
+    const [lightStyle, darkStyle] = await Promise.all([buildLightStyle(), buildDarkStyle()]);
+
+    const before = new maplibregl.Map({ container: "before", style: lightStyle, center: CENTER, zoom: ZOOM });
+    const after = new maplibregl.Map({ container: "after", style: darkStyle, center: CENTER, zoom: ZOOM });
+    before.addControl(new maplibregl.NavigationControl());
+
+    // Note: UGRC's own font-glyph endpoint 200s with a JSON error body (not real PBF) for a
+    // few font names some LiteLabels layers reference - a pre-existing gap in their live font
+    // resource, not something introduced here. MapLibre's glyph parser throws on it, and that
+    // can keep the map's 'load' event from ever firing even though everything else renders
+    // fine - so the compare widget doesn't wait on 'load', just on the first real paint.
+    new maplibregl.Compare(before, after, "#maps", {});
+    for (const [label, map] of [["before", before], ["after", after]]) {
+      map.on("error", (e) => {
+        const err = e && e.error;
+        console.error(`[${label}] MapLibre error:`, err ? (err.stack || err.message || String(err)) : String(e));
+      });
+    }
+    Promise.race([
+      Promise.all([before, after].map((m) => new Promise((res) => m.once("render", res)))),
+      new Promise((res) => setTimeout(res, 4000)),
+    ]).then(() => {
+      statusEl.hidden = true;
+    });
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = "Failed to load: " + err.message;
+  }
+}
+
+main();
+</script>
+</body>
+</html>
