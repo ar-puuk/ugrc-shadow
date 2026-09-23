@@ -3,7 +3,7 @@
 A dark-mode restyling of [UGRC](https://gis.utah.gov/)'s Lite vector basemap
 (`VectorHillshade`, `LiteBase`, `LiteLabels`) for [MapLibre](https://maplibre.org/).
 
-**[Live compare demo →](https://pukar-bhandari.github.io/ugrc-shadow/)** <!-- update once Pages is live -->
+**[Live compare demo →](https://ar-puuk.github.io/ugrc-shadow/)** <!-- update once Pages is live -->
 
 ## What this is
 
@@ -43,7 +43,7 @@ UGRC's own live services are already directly usable for that.
 ```bash
 uv sync
 uv run ugrc-shadow                       # writes docs/styles/*.json + docs/sprites/*
-uv run ugrc-shadow --base-url https://pukar-bhandari.github.io/ugrc-shadow  # absolute sprite URL for publishing
+uv run ugrc-shadow --base-url https://ar-puuk.github.io/ugrc-shadow  # absolute sprite URL for publishing
 ```
 
 Run `uv run pytest` for the unit tests (color math + rule matching).
