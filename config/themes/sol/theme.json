@@ -4,7 +4,7 @@
   "palette_source": { "type": "carto", "style_url": "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json" },
   "sprite_transform": "none",
   "sprites": {
-    "_about": "Sol borrows UGRC's Vector_Overlay sprite (the colorful icon set built for their Hybrid basemap - bright shield reds/blues and distinct POI icons) instead of LiteBase/LiteLabels' own muted grayscale one. icon_remap translates each layer's icon-image name to Vector_Overlay's naming. A few LiteBase icons (OpenSourcePlaces, Trailheads, the Railroads tie-mark) have no Vector_Overlay equivalent and are left unmapped - those icons simply don't render for sol, a deliberate trade-off for the rest reading much better.",
+    "_about": "Sol borrows UGRC's Vector_Overlay sprite (the colorful icon set built for their Hybrid basemap - bright shield reds/blues and distinct POI icons) instead of LiteBase/LiteLabels' own muted grayscale one. icon_remap translates each layer's icon-image name to Vector_Overlay's naming. A few LiteBase icons (OpenSourcePlaces, Trailheads, the Railroads tie-mark) have no Vector_Overlay equivalent, so borrow_icons pastes those specific icons back in from LiteBase's own sprite (see sprites.merge_sprites) rather than leaving them unresolved - the tie-mark also gets its own exact recolor (borrow_recolor) so it still matches the Railroads line's @rail color.",
     "LiteBase": {
       "source": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/Vector_Overlay/VectorTileServer/resources/sprites/sprite",
       "icon_remap": {
@@ -15,7 +15,9 @@
         "Base/LOCATIONS/SkiAreaLocations": "LOCATIONS/SkiAreaLocations",
         "Base/TRANSIT/CommuterRailStops_UTA": "TRANSIT/CommuterRailStops_UTA",
         "Base/TRANSIT/LightRailStations_UTA": "TRANSIT/LightRailStations_UTA"
-      }
+      },
+      "borrow_icons": ["Base/LOCATIONS/OpenSourcePlaces", "Base/LOCATIONS/Trailheads", "Base/Railroads/0"],
+      "borrow_recolor": { "Base/Railroads/0": "rail" }
     },
     "LiteLabels": {
       "source": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/Vector_Overlay/VectorTileServer/resources/sprites/sprite",

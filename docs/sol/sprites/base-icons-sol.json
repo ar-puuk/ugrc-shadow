@@ -78,5 +78,29 @@
     "height": 13,
     "pixelRatio": 1,
     "sdf": false
+  },
+  "Base/LOCATIONS/OpenSourcePlaces": {
+    "x": 0,
+    "y": 68,
+    "width": 24,
+    "height": 24,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "Base/LOCATIONS/Trailheads": {
+    "x": 24,
+    "y": 68,
+    "width": 24,
+    "height": 24,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "Base/Railroads/0": {
+    "x": 48,
+    "y": 68,
+    "width": 7,
+    "height": 3,
+    "pixelRatio": 1,
+    "sdf": false
   }
 }

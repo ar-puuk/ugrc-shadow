@@ -85,6 +85,56 @@ def _regions_for(sprite_json: dict, recolor: dict[str, str]) -> list[tuple[int, 
     return regions
 
 
+def _paste_icons_below(base_json: dict, base_png: bytes, extra_json: dict, extra_png: bytes, icon_names: list[str]) -> tuple[dict, bytes]:
+    """Returns (new_json, new_png): `base` with `icon_names` copied in from `extra`, packed
+    left-to-right in a new row beneath `base`'s existing icons. Both JSONs/PNGs must be at the
+    same pixel density (both 1x, or both @2x) - the caller pairs them up."""
+    base_img = Image.open(io.BytesIO(base_png)).convert("RGBA")
+    extra_img = Image.open(io.BytesIO(extra_png)).convert("RGBA")
+    bw, bh = base_img.size
+
+    row_h = max((extra_json[name]["height"] for name in icon_names), default=0)
+    row_w = sum(extra_json[name]["width"] for name in icon_names)
+    canvas = Image.new("RGBA", (max(bw, row_w), bh + row_h), (0, 0, 0, 0))
+    canvas.paste(base_img, (0, 0))
+
+    new_json = dict(base_json)
+    x = 0
+    for name in icon_names:
+        box = extra_json[name]
+        icon_img = extra_img.crop((box["x"], box["y"], box["x"] + box["width"], box["y"] + box["height"]))
+        # no mask: a mask arg would use icon_img's own alpha to alpha-BLEND against the canvas
+        # (which is fully transparent here anyway), corrupting semi-transparent edge pixels by
+        # lerping their color toward transparent black instead of copying them through as-is.
+        canvas.paste(icon_img, (x, bh))
+        new_json[name] = {**box, "x": x, "y": bh}
+        x += box["width"]
+
+    out = io.BytesIO()
+    canvas.save(out, format="PNG")
+    return new_json, out.getvalue()
+
+
+def merge_sprites(base: dict, extra: dict, icon_names: list[str]) -> dict:
+    """Returns a new sprite dict (same shape as shadow_sprite()'s return value) with `icon_names`
+    copied into `base` from `extra` - for icons a theme's borrowed primary sprite doesn't have
+    (see e.g. sol's theme.json), so they don't just vanish, without resorting to MapLibre's
+    multi-sprite arrays (which docs/index.html's own merge step doesn't understand).
+
+    `icon_names` must exist in extra["json"] (and extra["json@2x"], if base has a @2x sheet) - a
+    KeyError means the assumption that extra's sprite has these icons no longer holds. Assumes
+    none of `icon_names` already exist in base (true for every current borrow: the two sprites
+    use disjoint naming schemes) - if one did, it would just be overwritten.
+    """
+    new_json, new_png = _paste_icons_below(base["json"], base["png"], extra["json"], extra["png"], icon_names)
+    merged = {"json": new_json, "png": new_png, "json@2x": base["json@2x"], "png@2x": base["png@2x"]}
+    if base["json@2x"] is not None and extra["json@2x"] is not None:
+        merged["json@2x"], merged["png@2x"] = _paste_icons_below(
+            base["json@2x"], base["png@2x"], extra["json@2x"], extra["png@2x"], icon_names
+        )
+    return merged
+
+
 def shadow_sprite(
     sprite_base_url: str, recolor: dict[str, str] | None = None, transform: str = "invert"
 ) -> dict[str, bytes | dict]:

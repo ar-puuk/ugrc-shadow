@@ -20,7 +20,7 @@ from pathlib import Path
 from ugrc_styles.config import Config, discover_themes, load_config
 from ugrc_styles.engine import Shadower, remap_icon_images
 from ugrc_styles.fetch import fetch_json
-from ugrc_styles.sprites import shadow_sprite
+from ugrc_styles.sprites import merge_sprites, shadow_sprite
 
 # UGRC service name -> the basename its theme-shadowed sprite is published under in
 # docs/<theme>/sprites/ (VectorHillshade declares a sprite field but has zero icon layers -
@@ -35,19 +35,9 @@ def write_json(path: Path, data: dict) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def shadow_and_write_sprite(
-    style: dict,
-    sprite_base_url: str,
-    sprite_name: str,
-    sprites_dir: Path,
-    base_url: str | None,
-    recolor: dict[str, str] | None,
-    transform: str,
-) -> None:
-    """Rework the sprite at `sprite_base_url` per the theme's transform and repoint
-    `style["sprite"]` at the local reworked copy."""
-    sprite = shadow_sprite(sprite_base_url, recolor, transform)
-
+def write_sprite(style: dict, sprite: dict, sprite_name: str, sprites_dir: Path, base_url: str | None) -> None:
+    """Writes an already-built sprite dict (from shadow_sprite() or merge_sprites()) under
+    `sprite_name` and repoints `style["sprite"]` at the local written copy."""
     write_json(sprites_dir / f"{sprite_name}.json", sprite["json"])
     (sprites_dir / f"{sprite_name}.png").write_bytes(sprite["png"])
     if sprite["json@2x"] is not None:
@@ -83,6 +73,8 @@ def build_theme(cfg: Config, theme_dir: Path, base_url: str | None = None) -> di
         if name not in shadow_styles:
             continue
         style = shadow_styles[name]
+        own_sprite_base_url = style["sprite"]  # the service's own sprite, already absolutized
+
         icon_remap = sprite_cfg.get("icon_remap")
         if icon_remap:
             remap_icon_images(style, icon_remap)
@@ -90,14 +82,24 @@ def build_theme(cfg: Config, theme_dir: Path, base_url: str | None = None) -> di
         # a theme may point a service at a different sprite sheet entirely (e.g. sol borrows
         # Vector_Overlay's colorful icons instead of LiteBase/LiteLabels' own muted ones) -
         # "source" names that sheet's base URL; absent, fall back to the service's own sprite.
-        sprite_base_url = sprite_cfg.get("source") or style["sprite"]  # already absolutized
+        sprite_base_url = sprite_cfg.get("source") or own_sprite_base_url
 
         print(f"reworking {name}'s icon sprite ...")
-        sprite_name = f"{SPRITE_BASENAME[name]}-{cfg.theme.name}"
         recolor = {icon: cfg.palette[key] for icon, key in sprite_cfg.get("recolor", {}).items()}
-        shadow_and_write_sprite(
-            style, sprite_base_url, sprite_name, sprites_dir, base_url, recolor, cfg.theme.sprite_transform
-        )
+        sprite = shadow_sprite(sprite_base_url, recolor, cfg.theme.sprite_transform)
+
+        # a borrowed sprite sheet may not have every icon the service's own layers reference
+        # (e.g. Vector_Overlay has no railroad tie-mark) - "borrow_icons" pulls those specific
+        # icons in from the service's own sprite instead of just leaving them unresolved.
+        borrow_icons = sprite_cfg.get("borrow_icons")
+        if borrow_icons:
+            print(f"  + borrowing {len(borrow_icons)} icon(s) from {name}'s own sprite ...")
+            own_recolor = {icon: cfg.palette[key] for icon, key in sprite_cfg.get("borrow_recolor", {}).items()}
+            own_sprite = shadow_sprite(own_sprite_base_url, own_recolor, cfg.theme.sprite_transform)
+            sprite = merge_sprites(sprite, own_sprite, borrow_icons)
+
+        sprite_name = f"{SPRITE_BASENAME[name]}-{cfg.theme.name}"
+        write_sprite(style, sprite, sprite_name, sprites_dir, base_url)
 
     style_paths = {}
     for name, svc in cfg.services.items():
