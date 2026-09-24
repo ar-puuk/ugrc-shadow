@@ -28,6 +28,11 @@
     text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,.9);
   }
   footer a { color: #fff; }
+  /* Mounted directly on #maps (a sibling of #before/#after, not inside either), so the compare
+     slider's clip - which only clips the two map containers - never hides it. Top offset is set
+     from JS (header height varies - its subtitle wraps to a second line at phone widths), not
+     hardcoded here. */
+  #nav-control { position: absolute; left: 10px; z-index: 4; }
   #status {
     position: absolute; z-index: 3; top: 50%; left: 50%; transform: translate(-50%, -50%);
     padding: 10px 16px; background: rgba(0,0,0,.7); border-radius: 6px; color: #eee; font-size: 13px;
@@ -39,6 +44,7 @@
 <div id="maps">
   <div id="before"></div>
   <div id="after"></div>
+  <div id="nav-control"></div>
 </div>
 <header>
   <h1>UGRC Lite &mdash; original vs. dark</h1>
@@ -188,12 +194,22 @@ async function main() {
 
     const before = new maplibregl.Map({ container: "before", style: lightStyle, center: CENTER, zoom: ZOOM });
     const after = new maplibregl.Map({ container: "after", style: darkStyle, center: CENTER, zoom: ZOOM });
-    // The compare slider clips "before" to its left portion and "after" to its right portion,
-    // so each map's own navigation control has to sit in the corner that stays inside its own
-    // visible region - "before"'s at top-left, "after"'s at top-right - or it's hidden behind
-    // the clip at any normal slider position. The two maps are camera-synced either way.
-    before.addControl(new maplibregl.NavigationControl(), "top-left");
-    after.addControl(new maplibregl.NavigationControl(), "top-right");
+    // A single control, shared by both maps: map.addControl() mounts a control INSIDE that
+    // map's own container, which the compare slider clips to a left- or right-only region - so
+    // whichever map it were attached to, the control would disappear past the slider. Instead
+    // call the control's onAdd() directly (bypassing addControl's placement) and mount the
+    // resulting element on #maps itself, a sibling of both map containers that's never clipped.
+    // "after" and "before" are camera-synced, so binding it to "after" still zooms/pans both.
+    const nav = new maplibregl.NavigationControl();
+    const navEl = document.getElementById("nav-control");
+    navEl.appendChild(nav.onAdd(after));
+    // header's height varies (its subtitle wraps to a second line at phone widths), so measure
+    // it instead of assuming a fixed offset - re-measure on resize since wrapping can change.
+    const placeNav = () => {
+      navEl.style.top = `${document.querySelector("header").getBoundingClientRect().bottom + 10}px`;
+    };
+    placeNav();
+    window.addEventListener("resize", placeNav);
 
     // Note: UGRC's own font-glyph endpoint 200s with a JSON error body (not real PBF) for a
     // few font names some LiteLabels layers reference - a pre-existing gap in their live font
