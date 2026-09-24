@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+<link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.css">
 <style>
   :root {
     --accent: #f2b84b;
@@ -250,6 +251,26 @@
 
   .maplibregl-ctrl-icon { filter: invert(1) brightness(1.2); }
 
+  #compare-view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .compare-toolbar { display: flex; justify-content: center; padding: 10px; border-bottom: 1px solid var(--glass-border); }
+  .picker-group {
+    display: flex; align-items: center; gap: 6px;
+    padding: 3px; border-radius: 11px;
+    background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .07);
+  }
+  #compare-maps { position: relative; flex: 1; overflow: hidden; }
+  #compare-before, #compare-after { position: absolute; inset: 0; }
+  /* maplibre-gl-compare's own divider/handle, recolored to match this page - see index.html for
+     the same rule with the same caveat: only background-color/box-shadow are touched, never the
+     "background" shorthand, since the handle's arrow icon is itself a background-image the
+     library's own stylesheet sets. */
+  .maplibregl-compare { background-color: rgba(255, 255, 255, .85); box-shadow: 0 0 14px rgba(0, 0, 0, .5); }
+  .maplibregl-compare .compare-swiper-vertical,
+  .maplibregl-compare .compare-swiper-horizontal {
+    background-color: var(--accent);
+    box-shadow: inset 0 0 0 3px rgba(13, 14, 16, .9), 0 8px 22px rgba(0, 0, 0, .45);
+  }
+
   @media (max-width: 900px) {
     main { flex-direction: column; overflow-y: auto; }
     aside { width: 100%; max-height: 40vh; border: none; border-bottom: 1px solid var(--glass-border); }
@@ -271,6 +292,7 @@
     </div>
     <button id="upload-btn" class="btn" type="button">Upload style…</button>
     <input id="upload-input" type="file" accept=".json,application/json" hidden>
+    <button id="compare-toggle-btn" class="btn" type="button" aria-pressed="false" disabled>Compare</button>
 
     <div class="divider" aria-hidden="true"></div>
     <span id="changed-badge" style="font-size:12px;color:var(--text-dim);"></span>
@@ -311,9 +333,41 @@
       <div id="prop-body"><p class="prop-empty">Select a layer on the left to edit it.</p></div>
     </aside>
   </main>
+
+  <div id="compare-view" hidden>
+    <div class="compare-toolbar glass">
+      <div class="picker-group">
+        <div class="dd" id="compare-left-dd">
+          <button type="button" class="dd-button" aria-haspopup="listbox" aria-expanded="false" aria-label="Left side">
+            <span class="dd-button-label"></span>
+            <svg class="dd-chevron" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
+          </button>
+          <ul class="dd-menu" role="listbox" tabindex="-1" hidden></ul>
+        </div>
+        <button id="compare-swap-btn" class="icon-btn" type="button" title="Swap sides" aria-label="Swap left and right">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M7 3 3 7l4 4"/><path d="M3 7h13a4 4 0 0 1 4 4v1"/>
+            <path d="m17 21 4-4-4-4"/><path d="M21 17H8a4 4 0 0 1-4-4v-1"/>
+          </svg>
+        </button>
+        <div class="dd" id="compare-right-dd">
+          <button type="button" class="dd-button" aria-haspopup="listbox" aria-expanded="false" aria-label="Right side">
+            <span class="dd-button-label"></span>
+            <svg class="dd-chevron" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
+          </button>
+          <ul class="dd-menu" role="listbox" tabindex="-1" hidden></ul>
+        </div>
+      </div>
+    </div>
+    <div id="compare-maps">
+      <div id="compare-before"></div>
+      <div id="compare-after"></div>
+    </div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.js"></script>
 <script type="module">
 "use strict";
 
@@ -434,6 +488,11 @@ async function main() {
   const changedBadgeEl = document.getElementById("changed-badge");
   const download3Btn = document.getElementById("download-3-btn");
   const downloadCombinedBtn = document.getElementById("download-combined-btn");
+  const compareToggleBtn = document.getElementById("compare-toggle-btn");
+  const mainEl = document.querySelector("main");
+  const compareViewEl = document.getElementById("compare-view");
+  const compareLeftPick = new Dropdown(document.getElementById("compare-left-dd"));
+  const compareRightPick = new Dropdown(document.getElementById("compare-right-dd"));
 
   const map = new maplibregl.Map({
     container: "map",
@@ -462,6 +521,14 @@ async function main() {
   // Reordering doesn't change any single layer's own JSON, so it wouldn't show up in changedIds -
   // tracked separately, set by reorderWithinService().
   let orderChanged = false;
+  // The most recent upload's ORIGINAL parsed content, kept distinct from `current.style` (which
+  // keeps mutating as edits happen) so compare mode's "Your upload" option always means the file
+  // as uploaded, while "Current edit" means the live in-progress state - see loadUploadedFile().
+  let uploadedBuild = null; // { style, label }
+  let compareInitialized = false;
+  let compareBefore = null, compareAfter = null;
+  let compareOpts = null;
+  const compareStyleCache = new Map(); // template key -> render-ready style (not for the two live keys)
 
   function setStatus(msg) {
     if (msg == null) { statusEl.hidden = true; return; }
@@ -1269,13 +1336,17 @@ async function main() {
     if (typeof parsed.sprite === "string" && !/^https?:\/\//.test(parsed.sprite)) {
       console.warn("Uploaded style's sprite path looks relative - it may not load correctly.", parsed.sprite);
     }
+    // Snapshot the ORIGINAL upload before it's handed to loadBuild (whose current.style becomes
+    // this same object, then keeps mutating as edits happen) - compare mode's "Your upload" option
+    // should always mean the file as uploaded, distinct from "Current edit" (see compareOptionsList).
+    const label = file.name.replace(/\.json$/i, "");
+    uploadedBuild = { style: JSON.parse(JSON.stringify(parsed)), label };
     // Uploads have no known 3-service origin (see STYLE_EDITOR_PLAN.md §3) - only the combined
     // single-file download applies, regardless of whether this file was itself exported from here.
-    await loadBuild({ style: parsed, serviceOriginals: null }, file.name.replace(/\.json$/i, ""));
+    await loadBuild({ style: parsed, serviceOriginals: null }, label);
     current.templateKey = null;
-    // No dropdown option represents "an upload" (that's compare-mode's job, not this thin slice's -
-    // see STYLE_EDITOR_PLAN.md §9) - just show the filename in the picker without touching its
-    // selected-option state, since none of its options actually match.
+    // No "start from" dropdown option represents "an upload" - just show the filename in the
+    // picker without touching its selected-option state, since none of its options actually match.
     templatePick.label.textContent = current.label;
   }
 
@@ -1292,6 +1363,82 @@ async function main() {
     }
   }
 
+  /** The compare-mode option list: every built-in template/original, plus "Current edit" once
+   * something's loaded and "Your upload" once a file's been uploaded this session - reusing the
+   * same picker options as the "start from" dropdown wouldn't work since those two are dynamic and
+   * session-specific rather than fixed entries from docs/themes.json (STYLE_EDITOR_PLAN.md §9). */
+  function compareOptionsList() {
+    const opts = { ...options };
+    if (current) {
+      opts["current-edit"] = {
+        label: "Current edit",
+        description: `The style as you've edited it so far (started from ${current.label}).`,
+      };
+    }
+    if (uploadedBuild) {
+      opts["uploaded"] = { label: uploadedBuild.label, description: "Your uploaded style, as uploaded." };
+    }
+    return opts;
+  }
+
+  /** "current-edit"/"uploaded" always resolve to the live/retained objects (never cached, since
+   * they can change or be replaced across a session); built-in templates are cached so re-picking
+   * one already seen this session doesn't re-fetch. Everything returned is already render-ready
+   * (prepareForRender handles both an upload's possible Esri-shaped sources and a template's
+   * already-converted ones as a no-op). */
+  async function compareStyleFor(key) {
+    if (key === "current-edit") return prepareForRender(current.style);
+    if (key === "uploaded") return prepareForRender(uploadedBuild.style);
+    if (compareStyleCache.has(key)) return compareStyleCache.get(key);
+    const built = key === ORIGINAL_KEY ? await buildOriginalStyle() : await buildThemeStyle(compareOpts[key].manifest);
+    const rendered = prepareForRender(built.style);
+    compareStyleCache.set(key, rendered);
+    return rendered;
+  }
+
+  async function enterCompareMode() {
+    compareOpts = compareOptionsList();
+    compareLeftPick.setOptions(compareOpts);
+    compareRightPick.setOptions(compareOpts);
+    const keys = Object.keys(compareOpts);
+    const leftDefault = current && current.templateKey && current.templateKey in compareOpts ? current.templateKey : keys[0];
+    const rightDefault = "current-edit" in compareOpts ? "current-edit" : keys[Math.min(1, keys.length - 1)];
+    compareLeftPick.setValueSilently(leftDefault);
+    compareRightPick.setValueSilently(rightDefault);
+
+    mainEl.hidden = true;
+    compareViewEl.hidden = false;
+    compareToggleBtn.textContent = "Back to editor";
+    compareToggleBtn.setAttribute("aria-pressed", "true");
+
+    const [leftStyle, rightStyle] = await Promise.all([compareStyleFor(leftDefault), compareStyleFor(rightDefault)]);
+    if (!compareInitialized) {
+      compareBefore = new maplibregl.Map({
+        container: "compare-before", style: leftStyle, center: CENTER, zoom: ZOOM, attributionControl: false,
+      });
+      compareAfter = new maplibregl.Map({
+        container: "compare-after", style: rightStyle, center: CENTER, zoom: ZOOM, attributionControl: false,
+      });
+      new maplibregl.Compare(compareBefore, compareAfter, "#compare-maps", {});
+      for (const [label, m] of [["compare-before", compareBefore], ["compare-after", compareAfter]]) {
+        m.on("error", (e) => console.error(`[${label}] MapLibre error:`, e && e.error));
+      }
+      compareInitialized = true;
+    } else {
+      compareBefore.setStyle(leftStyle);
+      compareAfter.setStyle(rightStyle);
+      compareBefore.resize();
+      compareAfter.resize();
+    }
+  }
+
+  function exitCompareMode() {
+    mainEl.hidden = false;
+    compareViewEl.hidden = true;
+    compareToggleBtn.textContent = "Compare";
+    compareToggleBtn.setAttribute("aria-pressed", "false");
+  }
+
   templatePick.addEventListener("change", () => loadTemplate(templatePick.value));
   layerSearchEl.addEventListener("input", renderLayerList);
   document.getElementById("upload-btn").addEventListener("click", () => document.getElementById("upload-input").click());
@@ -1303,6 +1450,21 @@ async function main() {
   document.getElementById("reset-all-btn").addEventListener("click", resetAll);
   download3Btn.addEventListener("click", downloadThree);
   downloadCombinedBtn.addEventListener("click", downloadCombined);
+  compareToggleBtn.addEventListener("click", () => {
+    if (compareViewEl.hidden) enterCompareMode(); else exitCompareMode();
+  });
+  compareLeftPick.addEventListener("change", async () => {
+    compareBefore.setStyle(await compareStyleFor(compareLeftPick.value));
+  });
+  compareRightPick.addEventListener("change", async () => {
+    compareAfter.setStyle(await compareStyleFor(compareRightPick.value));
+  });
+  document.getElementById("compare-swap-btn").addEventListener("click", () => {
+    const l = compareLeftPick.value, r = compareRightPick.value;
+    if (l === r) return;
+    compareLeftPick.value = r;
+    compareRightPick.value = l;
+  });
   window.addEventListener("beforeunload", (e) => {
     if (hasUnsavedEdits()) { e.preventDefault(); e.returnValue = ""; }
   });
@@ -1313,6 +1475,7 @@ async function main() {
     templatePick.setOptions(options);
     await loadTemplate(DEFAULT_TEMPLATE in options ? DEFAULT_TEMPLATE : Object.keys(options)[0]);
     templatePick.setValueSilently(current.templateKey); // reflect the initial load; avoid re-dispatching "change"
+    compareToggleBtn.disabled = false;
   } catch (err) {
     console.error(err);
     setStatus("Failed to load: " + err.message);
