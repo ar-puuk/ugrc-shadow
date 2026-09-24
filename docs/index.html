@@ -72,6 +72,16 @@
   }
   .picker select:hover { background: rgba(255, 255, 255, .11); border-color: rgba(255, 255, 255, .3); }
   .picker select:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  /* The popped-open option list is native OS chrome, not something our translucent glass
+     background can paint - `color-scheme: dark` above isn't consistently honored for it across
+     browsers, so without this the list renders on the OS's default light listbox background
+     while keeping our light select text, making every unhovered option unreadable. A solid
+     (non-transparent) background here is required - browsers can't blend the popup against
+     whatever's behind it the way they can for the closed select box. */
+  .picker select option {
+    background: #16171c;
+    color: var(--text);
+  }
 
   .swap-btn {
     display: flex; align-items: center; justify-content: center;
