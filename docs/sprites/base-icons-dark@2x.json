@@ -1,0 +1,82 @@
+{
+  "Base/LOCATIONS/SkiAreaLocations": {
+    "x": 0,
+    "y": 0,
+    "width": 58,
+    "height": 54,
+    "pixelRatio": 2,
+    "sdf": false
+  },
+  "Base/LOCATIONS/Trailheads": {
+    "x": 58,
+    "y": 0,
+    "width": 48,
+    "height": 48,
+    "pixelRatio": 2,
+    "sdf": false
+  },
+  "Base/LOCATIONS/OpenSourcePlaces": {
+    "x": 106,
+    "y": 0,
+    "width": 48,
+    "height": 48,
+    "pixelRatio": 2,
+    "sdf": false
+  },
+  "Base/TRANSIT/CommuterRailStops_UTA": {
+    "x": 0,
+    "y": 54,
+    "width": 48,
+    "height": 48,
+    "pixelRatio": 2,
+    "sdf": false
+  },
+  "Base/TRANSIT/LightRailStations_UTA": {
+    "x": 48,
+    "y": 54,
+    "width": 48,
+    "height": 48,
+    "pixelRatio": 2,
+    "sdf": false
+  },
+  "Base/LOCATIONS/CitiesTownsLocations_VT/Capital": {
+    "x": 96,
+    "y": 54,
+    "width": 44,
+    "height": 44,
+    "pixelRatio": 2,
+    "sdf": false
+  },
+  "Base/LOCATIONS/AirportLocations": {
+    "x": 0,
+    "y": 102,
+    "width": 42,
+    "height": 42,
+    "pixelRatio": 2,
+    "sdf": false
+  },
+  "Base/LOCATIONS/LicensedHealthCareFacilities": {
+    "x": 42,
+    "y": 102,
+    "width": 40,
+    "height": 40,
+    "pixelRatio": 2,
+    "sdf": false
+  },
+  "Base/LOCATIONS/PlaceNamesGNIS2010/Summit": {
+    "x": 82,
+    "y": 102,
+    "width": 30,
+    "height": 24,
+    "pixelRatio": 2,
+    "sdf": false
+  },
+  "Base/Railroads/0": {
+    "x": 112,
+    "y": 102,
+    "width": 14,
+    "height": 6,
+    "pixelRatio": 2,
+    "sdf": false
+  }
+}

@@ -1,8 +1,11 @@
 """The build pipeline, run as `uv run ugrc-shadow`.
 
 A plain sequential script: for each of UGRC's 3 services, fetch live -> darken -> write; then
-darken the shared LiteLabels shield sprite and write it too. No merge step - UGRC hosts the
-three layers separately, so the three darkened style JSONs stay separate artifacts.
+darken each service's own icon sprite (every icon in both LiteBase's and LiteLabels' sprites is
+a non-SDF raster baked at its original light color, so our paint-level `icon-color` rules are
+silently ignored - the pixels themselves have to be rewritten, same as the highway shields).
+No merge step - UGRC hosts the three layers separately, so the three darkened style JSONs stay
+separate artifacts.
 """
 from __future__ import annotations
 
@@ -15,11 +18,36 @@ from ugrc_shadow.engine import Darkener
 from ugrc_shadow.fetch import fetch_json
 from ugrc_shadow.sprites import darken_sprite
 
-SPRITE_NAME = "shields-dark"
+# services whose sprite actually has icons worth darkening (VectorHillshade declares a sprite
+# field but has zero icon layers - nothing to fix there) -> the name its darkened sprite is
+# written under in docs/sprites/
+SPRITES_TO_DARKEN = {
+    "LiteBase": "base-icons-dark",
+    "LiteLabels": "shields-dark",
+}
 
 
 def write_json(path: Path, data: dict) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def darken_and_write_sprite(style: dict, sprite_name: str, sprites_dir: Path, base_url: str | None) -> None:
+    """Darken `style`'s own sprite and repoint `style["sprite"]` at the local darkened copy."""
+    esri_sprite_base = style["sprite"]  # already absolutized to Esri's sprite URL
+    sprite = darken_sprite(esri_sprite_base)
+
+    write_json(sprites_dir / f"{sprite_name}.json", sprite["json"])
+    (sprites_dir / f"{sprite_name}.png").write_bytes(sprite["png"])
+    if sprite["json@2x"] is not None:
+        write_json(sprites_dir / f"{sprite_name}@2x.json", sprite["json@2x"])
+        (sprites_dir / f"{sprite_name}@2x.png").write_bytes(sprite["png@2x"])
+        print(f"  wrote {sprite_name}.{{json,png}} + @2x")
+    else:
+        print(f"  wrote {sprite_name}.{{json,png}} (no @2x sheet published by UGRC)")
+
+    style["sprite"] = (
+        f"{base_url.rstrip('/')}/sprites/{sprite_name}" if base_url else f"../sprites/{sprite_name}"
+    )
 
 
 def build(out_dir: Path, base_url: str | None = None) -> None:
@@ -41,23 +69,9 @@ def build(out_dir: Path, base_url: str | None = None) -> None:
         n_rule = sum(1 for r in report if r[3])
         print(f"  {name}: {len(report)} layers, {n_rule} matched a rule")
 
-    print("darkening the LiteLabels highway-shield sprite ...")
-    lite_labels = dark_styles["LiteLabels"]
-    esri_sprite_base = lite_labels["sprite"]  # already absolutized to Esri's sprite URL
-    sprite = darken_sprite(esri_sprite_base)
-
-    write_json(sprites_dir / f"{SPRITE_NAME}.json", sprite["json"])
-    (sprites_dir / f"{SPRITE_NAME}.png").write_bytes(sprite["png"])
-    if sprite["json@2x"] is not None:
-        write_json(sprites_dir / f"{SPRITE_NAME}@2x.json", sprite["json@2x"])
-        (sprites_dir / f"{SPRITE_NAME}@2x.png").write_bytes(sprite["png@2x"])
-        print(f"  wrote {SPRITE_NAME}.{{json,png}} + @2x")
-    else:
-        print(f"  wrote {SPRITE_NAME}.{{json,png}} (no @2x sheet published by UGRC)")
-
-    lite_labels["sprite"] = (
-        f"{base_url.rstrip('/')}/sprites/{SPRITE_NAME}" if base_url else f"../sprites/{SPRITE_NAME}"
-    )
+    for name, sprite_name in SPRITES_TO_DARKEN.items():
+        print(f"darkening {name}'s icon sprite ...")
+        darken_and_write_sprite(dark_styles[name], sprite_name, sprites_dir, base_url)
 
     for name, svc in cfg.services.items():
         out_path = styles_dir / svc["output"]
@@ -75,9 +89,9 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help=(
             "absolute base URL the site is published at (e.g. https://<user>.github.io/ugrc-shadow), "
-            "used to point the dark LiteLabels style's sprite at an absolute, standalone-usable URL. "
+            "used to point each darkened style's sprite at an absolute, standalone-usable URL. "
             "Defaults to a relative path, which is fine for the docs/ demo but not for someone taking "
-            "the style JSON elsewhere on its own."
+            "a style JSON elsewhere on its own."
         ),
     )
     args = ap.parse_args(argv)
