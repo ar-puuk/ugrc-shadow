@@ -410,7 +410,7 @@ import { Dropdown } from "./assets/dropdown.js";
 
 const CENTER = [-111.891, 40.761]; // Salt Lake City
 const ZOOM = 10;
-const DEFAULT_TEMPLATE = "shadow";
+const DEFAULT_TEMPLATE = ORIGINAL_KEY; // "Lite" - UGRC's own live basemap
 
 // The 3 services a built-in template's merged style is made of (bottom -> top, same order
 // mergeStyles() uses) - the layer list is an accordion over these, one open at a time
@@ -1574,10 +1574,17 @@ async function main() {
       if (draft.templateKey) templatePick.setValueSilently(draft.templateKey);
       else templatePick.label.textContent = draft.label;
       if (!draft.templateKey) uploadedBuild = { style: JSON.parse(JSON.stringify(draft.style)), label: draft.label };
+      setStatus(null); // loadBuild() itself never touches the status overlay - unlike loadTemplate()
+                        // below, which clears it on success; missing this left the "Loading…"
+                        // overlay stuck forever after restoring a draft, only clearing once some
+                        // later loadTemplate() call (e.g. picking a different style) happened to fire.
     } else {
       if (draft) clearDraft(); // declined - don't keep re-prompting on every future reload
       await loadTemplate(DEFAULT_TEMPLATE in options ? DEFAULT_TEMPLATE : Object.keys(options)[0]);
-      templatePick.setValueSilently(current.templateKey); // reflect the initial load; avoid re-dispatching "change"
+      // loadTemplate() swallows its own failures (logs + shows "Failed to load…", doesn't rethrow),
+      // so `current` can still be null here if the very first load failed - guard it rather than
+      // let this throw and stomp that message with a confusing "Cannot read properties of null".
+      if (current) templatePick.setValueSilently(current.templateKey); // reflect the initial load; avoid re-dispatching "change"
     }
     compareToggleBtn.disabled = false;
   } catch (err) {
