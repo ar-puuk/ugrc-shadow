@@ -43,6 +43,9 @@
     --ring: 217 91% 72%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
+    --json-string: 142 71% 30%;
+    --json-number: 32 95% 38%;
+    --json-boolean: 271 60% 48%;
     --radius: 0.5rem;
     /* Shared checkerboard pattern for anything that might show a transparent color (the color-
        picker's swatch trigger, preview chip, and alpha slider track) - defined once here rather
@@ -76,6 +79,9 @@
       --ring: 217 91% 72%;
       --destructive: 0 62.8% 40%;
       --destructive-foreground: 0 0% 98%;
+      --json-string: 142 55% 58%;
+      --json-number: 38 92% 62%;
+      --json-boolean: 271 70% 72%;
     }
   }
   :root[data-theme="dark"] {
@@ -94,6 +100,9 @@
     --ring: 217 91% 72%;
     --destructive: 0 62.8% 40%;
     --destructive-foreground: 0 0% 98%;
+    --json-string: 142 55% 58%;
+    --json-number: 38 92% 62%;
+    --json-boolean: 271 70% 72%;
   }
 
   * { box-sizing: border-box; }
@@ -464,6 +473,14 @@
     color: hsl(var(--foreground));
     font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow-y: auto;
   }
+  /* Punctuation (braces/brackets/commas/colons) is left as plain --foreground text - only the
+     values themselves are colored. --json-key reuses --ring (already an accent blue in both
+     themes) rather than a dedicated token; --json-null reuses --muted-foreground. */
+  .raw-json pre .json-key { color: hsl(var(--ring)); font-weight: 500; }
+  .raw-json pre .json-string { color: hsl(var(--json-string)); }
+  .raw-json pre .json-number { color: hsl(var(--json-number)); }
+  .raw-json pre .json-boolean { color: hsl(var(--json-boolean)); font-weight: 500; }
+  .raw-json pre .json-null { color: hsl(var(--muted-foreground)); font-style: italic; }
   .raw-json-copy-btn {
     /* right: 16px, not 6px - the pre's own scrollbar (10px wide) renders inside its right edge, so
        6px would land the button right on top of it whenever the content actually scrolls. */
@@ -1034,6 +1051,29 @@ async function copyToClipboard(btn, text) {
     btn.innerHTML = original;
     btn.classList.remove("is-copied");
   }, 1200);
+}
+
+/** A small hand-rolled JSON syntax highlighter for the Layer JSON box - not a CDN library
+ * (Prism/highlight.js etc.): this is a well-known, ~15-line regex tokenizer, not worth a
+ * dependency for, and matches how the rest of this editor avoids external libraries for anything
+ * this size (the color picker, the custom dropdown, the range-slider styling are all hand-rolled
+ * the same way). Returns HTML (the caller sets it via .innerHTML, not .textContent) - safe because
+ * the source text is escaped for &/</> BEFORE tokenizing, so nothing in the JSON's own string
+ * values can inject markup; the tokenizer only ever wraps whole matches in a <span>, never
+ * interprets their content as HTML itself. */
+function highlightJson(value) {
+  const escaped = JSON.stringify(value, null, 2)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return escaped.replace(
+    /("(?:\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+    (match) => {
+      let cls = "json-number";
+      if (match.startsWith('"')) cls = /:\s*$/.test(match) ? "json-key" : "json-string";
+      else if (match === "true" || match === "false") cls = "json-boolean";
+      else if (match === "null") cls = "json-null";
+      return `<span class="${cls}">${match}</span>`;
+    }
+  );
 }
 
 // A crash/reload safety net only (STYLE_EDITOR_PLAN.md §10) - never presented as an alternative to
@@ -1991,7 +2031,7 @@ async function main() {
 
   function refreshRawJson(layer) {
     const pre = propBodyEl.querySelector("#raw-json-pre");
-    if (pre) pre.textContent = JSON.stringify(layer, null, 2);
+    if (pre) pre.innerHTML = highlightJson(layer);
   }
 
   function renderPropertyPanel() {
@@ -2044,7 +2084,7 @@ async function main() {
     body.className = "raw-json-body";
     const pre = document.createElement("pre");
     pre.id = "raw-json-pre";
-    pre.textContent = JSON.stringify(layer, null, 2);
+    pre.innerHTML = highlightJson(layer);
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
     copyBtn.className = "raw-json-copy-btn";
