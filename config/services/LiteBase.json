@@ -42,7 +42,7 @@
 
     { "note": "transit casing (/2)",  "match": { "source_layer": "^(CommuterRailRoutes_UTA|UTA_Trax_SingleLine)$", "id": "/2$" }, "paint": { "line-color": "@transit_casing" } },
     { "note": "transit fill (/1)",    "match": { "source_layer": "^(CommuterRailRoutes_UTA|UTA_Trax_SingleLine)$", "id": "/1$" }, "paint": { "line-color": "@transit_fill" } },
-    { "note": "transit colour dash (keep hue)", "match": { "source_layer": "^(CommuterRailRoutes_UTA|UTA_Trax_SingleLine)$", "id": "/0$" }, "paint": { "line-color": { "tint": { "l": 0.45, "s_mult": 0.40 } } } },
+    { "note": "transit colour dash (keep hue)", "match": { "source_layer": "^(CommuterRailRoutes_UTA|UTA_Trax_SingleLine)$", "id": "/0$" }, "paint": { "line-color": { "tint": { "l": 0.62, "s_mult": 0.9 } } } },
     { "note": "transit other",        "match": { "source_layer": "^UTA_Trax_SingleLine$", "id": "<all other values>" }, "paint": { "line-color": "@transit_other" } }
   ]
 }
