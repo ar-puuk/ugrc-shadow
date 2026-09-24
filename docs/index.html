@@ -31,10 +31,16 @@
   .glass {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
+    border-top-color: rgba(255, 255, 255, .18); /* a faint top highlight, like light catching a glass edge */
     backdrop-filter: blur(16px) saturate(140%);
     -webkit-backdrop-filter: blur(16px) saturate(140%);
     box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
   }
+
+  @keyframes fade-down { from { opacity: 0; transform: translateY(-10px); } }
+  @keyframes fade-up { from { opacity: 0; transform: translateY(10px); } }
+  header { animation: fade-down .5s cubic-bezier(.2, .8, .2, 1) both; }
+  footer { animation: fade-up .5s cubic-bezier(.2, .8, .2, 1) both; }
 
   /* header/footer overlay BOTH map halves (they span the full width, the compare slider only
      clips the maps beneath), so both float above everything as their own frosted cards rather
@@ -53,8 +59,14 @@
     border-radius: 14px;
   }
   .brand { margin-right: auto; line-height: 1.2; }
+  .brand-row { display: flex; align-items: center; gap: 7px; }
+  .brand-dot {
+    width: 9px; height: 9px; flex: none; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 0 8px rgba(242, 184, 75, .55);
+  }
   .brand h1 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: .1px; }
-  .brand p { margin: 0; font-size: 11px; font-weight: 500; color: var(--text-dim); }
+  .brand p { margin: 0; padding-left: 16px; font-size: 11px; font-weight: 500; color: var(--text-dim); }
 
   .controls { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
   .picker { display: flex; flex-direction: column; gap: 4px; }
@@ -64,13 +76,17 @@
   }
   .picker select {
     font: inherit; font-size: 13px; font-weight: 500; color: var(--text); color-scheme: dark;
-    padding: 6px 10px; min-width: 9.5em;
-    border-radius: 8px; border: 1px solid rgba(255, 255, 255, .16);
-    background: rgba(255, 255, 255, .06);
+    appearance: none; -webkit-appearance: none;
+    padding: 7px 30px 7px 12px; min-width: 9.5em;
+    border-radius: 9px; border: 1px solid rgba(255, 255, 255, .16);
+    background-color: rgba(255, 255, 255, .06);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9adb6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
     cursor: pointer;
     transition: border-color .15s ease, background-color .15s ease;
   }
-  .picker select:hover { background: rgba(255, 255, 255, .11); border-color: rgba(255, 255, 255, .3); }
+  .picker select:hover { background-color: rgba(255, 255, 255, .11); border-color: rgba(255, 255, 255, .3); }
   .picker select:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
   /* The popped-open option list is native OS chrome, not something our translucent glass
      background can paint - `color-scheme: dark` above isn't consistently honored for it across
@@ -85,13 +101,14 @@
 
   .swap-btn {
     display: flex; align-items: center; justify-content: center;
-    width: 30px; height: 30px; flex: none;
+    width: 32px; height: 32px; flex: none;
     border-radius: 50%; border: 1px solid rgba(255, 255, 255, .16);
     background: rgba(255, 255, 255, .06); color: var(--text);
-    font-size: 14px; line-height: 1; cursor: pointer;
-    transition: transform .25s ease, background-color .15s ease, border-color .15s ease;
+    cursor: pointer;
+    transition: transform .3s cubic-bezier(.3, 1.4, .5, 1), background-color .15s ease, border-color .15s ease;
   }
-  .swap-btn:hover { background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .32); }
+  .swap-btn svg { width: 15px; height: 15px; }
+  .swap-btn:hover { background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .32); color: var(--accent); }
   .swap-btn:active { transform: rotate(180deg) scale(.92); }
   .swap-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 
@@ -108,6 +125,20 @@
   }
   .footer-pill a { color: var(--text); text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, .3); }
   .footer-pill a:hover { color: var(--accent-2); border-color: var(--accent-2); }
+
+  /* maplibre-gl-compare's own divider line + drag handle, recolored to match this page instead
+     of the library's default white/blue - only background-color and box-shadow are touched
+     (never the "background" shorthand), since the handle's left-right arrow icon is itself a
+     background-image the library's own stylesheet sets and this must not blank out. */
+  .maplibregl-compare {
+    background-color: rgba(255, 255, 255, .85);
+    box-shadow: 0 0 14px rgba(0, 0, 0, .5);
+  }
+  .maplibregl-compare .compare-swiper-vertical,
+  .maplibregl-compare .compare-swiper-horizontal {
+    background-color: var(--accent);
+    box-shadow: inset 0 0 0 3px rgba(13, 14, 16, .9), 0 8px 22px rgba(0, 0, 0, .45);
+  }
 
   /* Mounted directly on #maps (a sibling of #before/#after, not inside either), so the compare
      slider's clip - which only clips the two map containers - never hides it. Top offset is set
@@ -137,6 +168,7 @@
   @media (prefers-reduced-motion: reduce) {
     .spinner { animation: none; }
     .swap-btn { transition: none; }
+    header, footer { animation: none; }
   }
 </style>
 </head>
@@ -149,7 +181,7 @@
 <header>
   <div class="toolbar glass">
     <div class="brand">
-      <h1>UGRC Lite</h1>
+      <div class="brand-row"><span class="brand-dot" aria-hidden="true"></span><h1>UGRC Lite</h1></div>
       <p>Style compare</p>
     </div>
     <div class="controls">
@@ -157,7 +189,12 @@
         <label for="left-pick">Left</label>
         <select id="left-pick"></select>
       </div>
-      <button id="swap-btn" class="swap-btn" type="button" title="Swap sides" aria-label="Swap left and right">⇄</button>
+      <button id="swap-btn" class="swap-btn" type="button" title="Swap sides" aria-label="Swap left and right">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M7 3 3 7l4 4"/><path d="M3 7h13a4 4 0 0 1 4 4v1"/>
+          <path d="m17 21 4-4-4-4"/><path d="M21 17H8a4 4 0 0 1-4-4v-1"/>
+        </svg>
+      </button>
       <div class="picker">
         <label for="right-pick">Right</label>
         <select id="right-pick"></select>
