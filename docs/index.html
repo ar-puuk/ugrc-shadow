@@ -195,6 +195,7 @@
   .btn:disabled { opacity: .5; cursor: not-allowed; }
   .btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: transparent; }
   .btn-primary:hover:not(:disabled) { background: hsl(var(--primary) / 0.9); }
+  .btn-sm { padding: 4px 9px; font-size: 12px; }
   .icon-btn {
     display: flex; align-items: center; justify-content: center;
     width: 30px; height: 30px; flex: none; border-radius: 50%; border: none;
@@ -247,7 +248,7 @@
 
   .panel-head {
     padding: 10px 12px; border-bottom: 1px solid hsl(var(--border));
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
   }
   .panel-head h2 { margin: 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: hsl(var(--muted-foreground)); }
   .search-input {
@@ -670,7 +671,6 @@
 
     <div class="divider" aria-hidden="true"></div>
     <span id="changed-badge" style="font-size:12px;color:hsl(var(--muted-foreground));"></span>
-    <button id="reset-all-btn" class="btn" type="button" title="Discard all edits and reload the current template">Reset all</button>
     <button id="download-3-btn" class="btn" type="button" title="VectorHillshade + LiteBase + LiteLabels, matching how UGRC hosts these">Download 3 files</button>
     <button id="download-combined-btn" class="btn btn-primary" type="button">Download combined</button>
 
@@ -720,7 +720,10 @@
 
     <div id="prop-panel-resize" class="panel-resize" role="separator" aria-orientation="vertical" aria-label="Resize property panel" tabindex="0"></div>
     <aside id="prop-panel" class="right">
-      <div class="panel-head"><h2>Properties</h2></div>
+      <div class="panel-head">
+        <h2>Properties</h2>
+        <button id="reset-all-btn" class="btn btn-sm" type="button" title="Discard all edits and reload the current template">Reset all</button>
+      </div>
       <div id="prop-body"><p class="prop-empty">Select a layer on the left to edit it.</p></div>
     </aside>
   </main>
