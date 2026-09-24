@@ -173,7 +173,7 @@
         "icon-keep-upright": true
       },
       "paint": {
-        "text-color": "#737270"
+        "text-color": "#f5efdc"
       }
     },
     {
@@ -548,7 +548,7 @@
         "icon-keep-upright": true
       },
       "paint": {
-        "text-color": "#737270"
+        "text-color": "#666461"
       }
     },
     {
@@ -581,7 +581,7 @@
         "icon-keep-upright": true
       },
       "paint": {
-        "text-color": "#F5EFDC"
+        "text-color": "#f5efdc"
       }
     },
     {
@@ -649,7 +649,7 @@
         "text-rotation-alignment": "viewport"
       },
       "paint": {
-        "text-color": "#737270"
+        "text-color": "#666461"
       }
     },
     {

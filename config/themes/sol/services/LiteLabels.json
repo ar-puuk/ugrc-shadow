@@ -3,8 +3,10 @@
   "rules": [
     { "note": "road names",           "match": { "type": "symbol", "source_layer": "^Roads" },                          "paint": { "text-color": "@label", "text-halo-color": "@halo" } },
     { "note": "minor road names",     "match": { "type": "symbol", "source_layer": "^Roads", "id": "Minor Rds" },       "paint": { "text-color": "@label_minor" } },
-    { "note": "shield route numbers: Sol doesn't recolor the shield sprite (see theme.json sprite_transform=none), so leave Esri's original label text-color untouched too - it was already tuned to read against that shield's untouched colors",
-      "match": { "type": "symbol", "source_layer": "^Roads", "id": "/label/(Interstates|US Highways|State Highways)" }, "skip": true },
+    { "note": "Interstate shield route numbers: matches the near-white number UGRC's own Vector_Overlay style pairs with that same shield graphic (see theme.json's borrowed sol sprite). No halo, same as Vector_Overlay's own - the number sits directly on the colorful shield, not bare like the other road name text this service's generic 'road names' rule above targets.",
+      "match": { "type": "symbol", "source_layer": "^Roads", "id": "/label/Interstates" }, "paint": { "text-color": "@shield_text_interstate", "text-halo-color": null } },
+    { "note": "US/State highway shield route numbers: matches the dark number UGRC's own Vector_Overlay style pairs with those shield graphics. No halo, same reasoning as Interstates above.",
+      "match": { "type": "symbol", "source_layer": "^Roads", "id": "/label/(US Highways|State Highways)" }, "paint": { "text-color": "@shield_text_highway", "text-halo-color": null } },
 
     { "note": "cities/towns",         "match": { "type": "symbol", "source_layer": "^CitiesTownsLocations" },           "paint": { "text-color": "@label_major", "text-halo-color": "@halo" } },
     { "note": "small places",         "match": { "type": "symbol", "source_layer": "^CitiesTownsLocations", "id": "- minor$" }, "paint": { "text-color": "@label" } },

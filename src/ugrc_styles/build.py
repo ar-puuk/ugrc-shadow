@@ -110,12 +110,22 @@ def build_theme(cfg: Config, theme_dir: Path, base_url: str | None = None) -> di
 
 
 def build(out_dir: Path, theme_names: list[str] | None = None, base_url: str | None = None) -> None:
+    build_all = theme_names is None
     theme_names = theme_names or discover_themes()
     if not theme_names:
         raise ValueError("no themes found under config/themes/")
 
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # A `--theme` build only rebuilds the themes named, but docs/themes.json is shared by every
+    # theme's demo entry - start from whatever's already there (a full build with no --theme
+    # replaces it outright) so a partial rebuild doesn't wipe out the other themes' entries.
     manifest = {}
+    if not build_all:
+        manifest_path = out_dir / "themes.json"
+        if manifest_path.exists():
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
     for theme_name in theme_names:
         print(f"== {theme_name} ==")
         print("loading rules + live palette ...")
