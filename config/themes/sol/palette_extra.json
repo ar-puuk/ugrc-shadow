@@ -39,8 +39,8 @@
   "hs_shadow_deep": "#cfc4aa",
 
   "road_casing": "#e6dfcb",
-  "road_medium": "#f3e2b8",
-  "road_unpaved": "#e8dcc0",
+  "road_unpaved": "#f2ead3",
+  "road_unpaved_casing": "#e3d5ad",
   "rail": "#c7c2b6",
   "trail_outer": "#d9cdb5",
   "trail_inner": "#e8dcc0",
