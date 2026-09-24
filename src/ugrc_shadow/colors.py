@@ -1,7 +1,7 @@
 """Color parsing, formatting, and HLS-space math.
 
-Ported from the original ugrc_darken.py/.R one-off scripts. colorsys (stdlib) is used so the
-math matches what those scripts did (R's version reimplemented the same colorsys algorithm by
+Ported from the original one-off scripts this project replaced. colorsys (stdlib) is used so the
+math matches what those scripts did (the R version reimplemented the same colorsys algorithm by
 hand to match this exactly).
 """
 from __future__ import annotations

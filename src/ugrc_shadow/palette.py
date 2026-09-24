@@ -1,4 +1,4 @@
-"""The dark palette: fetched live from Protomaps' actual dark flavor, extended with a small
+"""The shadow palette: fetched live from Protomaps' actual dark flavor, extended with a small
 set of UGRC-specific tokens Protomaps has no equivalent for.
 
 Most of this tool's colors are not "inspired by" Protomaps in some vague sense - they are the

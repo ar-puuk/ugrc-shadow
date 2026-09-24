@@ -1,16 +1,16 @@
-"""Darkens a UGRC sprite sheet (LiteLabels' highway shields, LiteBase's icons).
+"""Casts a shadow over a UGRC sprite sheet (LiteLabels' highway shields, LiteBase's icons).
 
 Every icon is a plain raster PNG (`"sdf": false`), so MapLibre's `icon-color` can't recolor
 them - the pixels have to be rewritten directly. By default every opaque pixel gets its
 lightness flipped (l' = 1 - l) in HLS space, keeping hue and saturation, so e.g. the Interstate
-shield's red/blue chrome darkens in place instead of shifting hue the way a literal RGB
+shield's red/blue chrome moves into shadow in place instead of shifting hue the way a literal RGB
 channel-invert would. Icon positions/sizes are untouched - only pixel colors move - so the
 original sprite.json's layout is reused as-is for both the 1x and 2x sheets.
 
 A handful of icons need to match an exact palette color rather than just being generically
 inverted - e.g. LiteBase's railroad tie-mark icon and the "Railroads" line layer beside it are
 both the identical gray in UGRC's original ("#B3AFAF" for each), so they need to land on the
-same darkened gray too. The line gets there via the normal rule engine (@rail); the icon can't,
+same shadowed gray too. The line gets there via the normal rule engine (@rail); the icon can't,
 since icon-color is a no-op on a non-SDF icon - so `recolor` stamps it to @rail's literal value
 directly instead of inverting whatever gray Esri happened to bake in.
 """
@@ -25,7 +25,7 @@ from ugrc_shadow.colors import invert_lightness, parse_color
 from ugrc_shadow.fetch import fetch_bytes, fetch_json
 
 
-def darken_sprite_image(png_bytes: bytes, recolor_regions: list[tuple[int, int, int, int, tuple[int, int, int]]] | None = None) -> bytes:
+def shadow_sprite_image(png_bytes: bytes, recolor_regions: list[tuple[int, int, int, int, tuple[int, int, int]]] | None = None) -> bytes:
     """`recolor_regions` is a list of (x, y, width, height, target_rgb) boxes: every opaque
     pixel inside one is stamped to target_rgb (alpha kept) instead of being inverted."""
     img = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
@@ -67,8 +67,8 @@ def _regions_for(sprite_json: dict, recolor: dict[str, str]) -> list[tuple[int, 
     return regions
 
 
-def darken_sprite(sprite_base_url: str, recolor: dict[str, str] | None = None) -> dict[str, bytes | dict]:
-    """Fetch a sprite sheet (json + png, and @2x if present) live and darken its pixels.
+def shadow_sprite(sprite_base_url: str, recolor: dict[str, str] | None = None) -> dict[str, bytes | dict]:
+    """Fetch a sprite sheet (json + png, and @2x if present) live and shadow its pixels.
 
     `recolor` maps an icon name (as it appears in sprite.json) to a literal hex color it should
     be stamped to exactly, instead of the default hue-preserving lightness invert.
@@ -79,12 +79,12 @@ def darken_sprite(sprite_base_url: str, recolor: dict[str, str] | None = None) -
     """
     recolor = recolor or {}
     sprite_json = fetch_json(f"{sprite_base_url}.json")
-    sprite_png = darken_sprite_image(fetch_bytes(f"{sprite_base_url}.png"), _regions_for(sprite_json, recolor))
+    sprite_png = shadow_sprite_image(fetch_bytes(f"{sprite_base_url}.png"), _regions_for(sprite_json, recolor))
 
     sprite_json_2x = sprite_png_2x = None
     try:
         sprite_json_2x = fetch_json(f"{sprite_base_url}@2x.json")
-        sprite_png_2x = darken_sprite_image(
+        sprite_png_2x = shadow_sprite_image(
             fetch_bytes(f"{sprite_base_url}@2x.png"), _regions_for(sprite_json_2x, recolor)
         )
     except requests.RequestException:

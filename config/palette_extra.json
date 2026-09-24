@@ -5,8 +5,8 @@
     "the extra label tier. These are layered on top of the tokens fetched live from Protomaps",
     "at build time (see src/ugrc_shadow/palette.py) to form the final palette.",
     "'shield_text' is new: the color for highway-shield route numbers once the shield icon",
-    "itself has been darkened (see src/ugrc_shadow/sprites.py) - needs to read clearly against",
-    "the shield's now-dark fill, so it sits lighter than the regular road-label grays.",
+    "itself has been shadowed (see src/ugrc_shadow/sprites.py) - needs to read clearly against",
+    "the shield's now-shadowed fill, so it sits lighter than the regular road-label grays.",
     "Discipline: nothing here may duplicate an actual Protomaps flavor value - if a token's",
     "color legitimately comes from Protomaps (matches namedFlavor('dark') either by value or by",
     "clear intent, e.g. hillshade's base tone = the land fill), it belongs in palette.py's",
@@ -34,8 +34,8 @@
 
   "hs_light": "#1c1c1c",
   "hs_mid": "#191919",
-  "hs_dark": "#151515",
-  "hs_darkest": "#101010",
+  "hs_shadow": "#151515",
+  "hs_shadow_deep": "#101010",
 
   "road_casing": "#0d0d0d",
   "road_medium": "#383838",

@@ -1,6 +1,6 @@
 """The restyling engine: applies a service's regex rules to a MapLibre style's layers.
 
-Ported 1:1 (behavior-for-behavior) from the original ugrc_darken.py one-off script.
+Ported 1:1 (behavior-for-behavior) from the original one-off script this project replaced.
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def is_color_prop(prop: str) -> bool:
     return prop.endswith("-color")
 
 
-class Darkener:
+class Shadower:
     """Rewrites a style's layers according to a service's rules + a resolved palette dict."""
 
     def __init__(self, palette: dict, fallback: dict):
@@ -139,7 +139,7 @@ class Darkener:
         return True
 
     # -- per style ---------------------------------------------------------------
-    def darken(self, style: dict, service: dict, style_url: str | None, source_mode: str = "tiles"):
+    def shadow(self, style: dict, service: dict, style_url: str | None, source_mode: str = "tiles"):
         style = copy.deepcopy(style)
         rules = service.get("rules", [])
         report = []

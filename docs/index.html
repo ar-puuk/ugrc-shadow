@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UGRC Lite vs. Dark</title>
+<title>UGRC Lite vs. Shadow</title>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
 <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.css">
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #1f1f1f; color: #ddd; font: 14px/1.4 system-ui, sans-serif; }
   #maps { position: relative; width: 100%; height: 100vh; overflow: hidden; }
   #before, #after { position: absolute; top: 0; bottom: 0; width: 100%; }
-  /* header/footer overlay BOTH the light and dark map halves (they span the full width, the
+  /* header/footer overlay BOTH the light and shadow map halves (they span the full width, the
      compare slider only clips the maps beneath), so their backing scrim must never fade down
      to transparent - it needs to stay dark enough on its own to hold white text over UGRC's
-     light basemap, not just over our dark one. text-shadow is a second line of defense. */
+     light basemap, not just over our shadow one. text-shadow is a second line of defense. */
   header {
     position: absolute; top: 0; left: 0; right: 0; z-index: 2;
     padding: 10px 14px; background: linear-gradient(rgba(0,0,0,.75), rgba(0,0,0,.35));
@@ -47,12 +47,12 @@
   <div id="nav-control"></div>
 </div>
 <header>
-  <h1>UGRC Lite &mdash; original vs. dark</h1>
-  <p>Left: UGRC's live Lite basemap. Right: <a href="https://github.com/" style="color:#fff">ugrc-shadow</a>'s dark restyle. Drag the slider to compare.</p>
+  <h1>UGRC Lite &mdash; original vs. shadow</h1>
+  <p>Left: UGRC's live Lite basemap. Right: <a href="https://github.com/" style="color:#fff">ugrc-shadow</a>'s shadow restyle. Drag the slider to compare.</p>
 </header>
 <footer>
   Basemap data &amp; tiles: <a href="https://gis.utah.gov/" target="_blank" rel="noopener">UGRC</a>, via Esri ArcGIS Online.
-  Dark palette: <a href="https://protomaps.com/" target="_blank" rel="noopener">Protomaps</a> <code>@protomaps/basemaps</code> (BSD-3-Clause).
+  Shadow palette: <a href="https://protomaps.com/" target="_blank" rel="noopener">Protomaps</a> <code>@protomaps/basemaps</code> (BSD-3-Clause).
 </footer>
 <div id="status">Loading UGRC's live styles&hellip;</div>
 
@@ -71,11 +71,11 @@ const LIGHT_SERVICE_URLS = {
   LiteLabels:      "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteLabels/VectorTileServer/resources/styles/root.json",
 };
 
-// This tool's generated dark output, committed in this repo (see README "Using the output directly").
-const DARK_STYLE_URLS = {
-  VectorHillshade: "styles/UGRC_VectorHillshade_dark.json",
-  LiteBase:        "styles/UGRC_LiteBase_dark.json",
-  LiteLabels:      "styles/UGRC_LiteLabels_dark.json",
+// This tool's generated shadow output, committed in this repo (see README "Using the output directly").
+const SHADOW_STYLE_URLS = {
+  VectorHillshade: "styles/UGRC_VectorHillshade_shadow.json",
+  LiteBase:        "styles/UGRC_LiteBase_shadow.json",
+  LiteLabels:      "styles/UGRC_LiteLabels_shadow.json",
 };
 
 function withFormat(url) {
@@ -96,8 +96,8 @@ function joinUrl(base, rel) {
 }
 
 /** A vector source's `url` points at Esri's own VectorTileServer root (both UGRC's live styles
- * and our committed dark styles keep this Esri shape rather than a MapLibre `tiles` array - see
- * source_mode="url" in src/ugrc_shadow/engine.py's absolutize(), chosen so the dark styles stay
+ * and our committed shadow styles keep this Esri shape rather than a MapLibre `tiles` array - see
+ * source_mode="url" in src/ugrc_shadow/engine.py's absolutize(), chosen so the shadow styles stay
  * a structural match for hosting as ArcGIS Online Vector Tile Style items). But that endpoint's
  * own tile template is relative ("tile/{z}/{y}/{x}.pbf"), which ArcGIS's own runtime resolves
  * but MapLibre GL JS does not when it fetches a source's `url` as TileJSON - it errors with
@@ -134,11 +134,11 @@ function absolutize(style, styleUrl) {
   }
 }
 
-/** The committed dark styles' sprite/glyphs are already absolute (the Python build always
+/** The committed shadow styles' sprite/glyphs are already absolute (the Python build always
  * absolutizes those regardless of source_mode), but their vector sources are deliberately left
  * in Esri's `url` shape rather than MapLibre's `tiles` array (see vectorUrlSourceToTiles above)
  * - so this demo has to do that one conversion itself before MapLibre can render them. */
-function resolveDarkSources(style) {
+function resolveShadowSources(style) {
   for (const src of Object.values(style.sources || {})) {
     if (typeof src.url === "string") {
       const absUrl = src.url.endsWith("/") ? src.url : src.url + "/";
@@ -147,7 +147,7 @@ function resolveDarkSources(style) {
   }
 }
 
-/** JS port of preview_ugrc_dark.R's ugrc_merge_styles(): combine several named styles (each
+/** JS port of the original R reference script's ugrc_merge_styles(): combine several named styles (each
  * with their own "esri" source) into one MapLibre style, namespacing sources and sprites so
  * they can coexist, and dedup layer ids. List order (Object.keys order) = bottom -> top. */
 function mergeStyles(namedStyles, { glyphsFrom } = {}) {
@@ -206,11 +206,11 @@ async function buildLightStyle() {
   return mergeStyles(styles, { glyphsFrom: "LiteLabels" });
 }
 
-async function buildDarkStyle() {
+async function buildShadowStyle() {
   const styles = {};
-  for (const [name, url] of Object.entries(DARK_STYLE_URLS)) {
+  for (const [name, url] of Object.entries(SHADOW_STYLE_URLS)) {
     const style = await fetchJson(url);
-    resolveDarkSources(style);
+    resolveShadowSources(style);
     styles[name] = style;
   }
   return mergeStyles(styles, { glyphsFrom: "LiteLabels" });
@@ -219,7 +219,7 @@ async function buildDarkStyle() {
 async function main() {
   const statusEl = document.getElementById("status");
   try {
-    const [lightStyle, darkStyle] = await Promise.all([buildLightStyle(), buildDarkStyle()]);
+    const [lightStyle, shadowStyle] = await Promise.all([buildLightStyle(), buildShadowStyle()]);
 
     // MapLibre's own default attribution control is dropped: it would face the same
     // clipped-inside-a-map-container problem the nav control had, it collides with our footer,
@@ -227,7 +227,7 @@ async function main() {
     // leftover on their end) - not worth solving for text that isn't real credit anyway. Real
     // attribution (UGRC/Esri, Protomaps) is already in our own <footer> below.
     const before = new maplibregl.Map({ container: "before", style: lightStyle, center: CENTER, zoom: ZOOM, attributionControl: false });
-    const after = new maplibregl.Map({ container: "after", style: darkStyle, center: CENTER, zoom: ZOOM, attributionControl: false });
+    const after = new maplibregl.Map({ container: "after", style: shadowStyle, center: CENTER, zoom: ZOOM, attributionControl: false });
     // A single control, shared by both maps: map.addControl() mounts a control INSIDE that
     // map's own container, which the compare slider clips to a left- or right-only region - so
     // whichever map it were attached to, the control would disappear past the slider. Instead

@@ -1,7 +1,7 @@
 [project]
 name = "ugrc-shadow"
 version = "0.1.0"
-description = "A dark-mode restyling of UGRC's Lite vector basemap for MapLibre."
+description = "A shadow restyling of UGRC's Lite vector basemap for MapLibre."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

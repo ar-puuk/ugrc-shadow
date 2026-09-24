@@ -1,6 +1,6 @@
 {
   "version": 8,
-  "sprite": "https://ar-puuk.github.io/ugrc-shadow/sprites/shields-dark",
+  "sprite": "https://ar-puuk.github.io/ugrc-shadow/sprites/shields-shadow",
   "glyphs": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteLabels/VectorTileServer/resources/fonts/{fontstack}/{range}.pbf",
   "sources": {
     "esri": {

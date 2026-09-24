@@ -1,6 +1,6 @@
 {
   "style_url": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteBase/VectorTileServer/resources/styles/root.json",
-  "output": "UGRC_LiteBase_dark.json",
+  "output": "UGRC_LiteBase_shadow.json",
   "background": null,
   "rules": [
     { "note": "neighbouring states",  "match": { "source_layer": "^WesternStates$" }, "paint": { "fill-color": "@earth", "fill-outline-color": "@boundary_faint" } },
