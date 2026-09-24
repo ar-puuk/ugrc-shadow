@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UGRC Lite vs. Dark</title>
-<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
 <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.css">
 <style>
   html, body { margin: 0; height: 100%; background: #1f1f1f; color: #ddd; font: 14px/1.4 system-ui, sans-serif; }
@@ -45,7 +45,7 @@
 </footer>
 <div id="status">Loading UGRC's live styles&hellip;</div>
 
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.js"></script>
 <script>
 "use strict";
@@ -184,6 +184,7 @@ async function main() {
     const before = new maplibregl.Map({ container: "before", style: lightStyle, center: CENTER, zoom: ZOOM });
     const after = new maplibregl.Map({ container: "after", style: darkStyle, center: CENTER, zoom: ZOOM });
     before.addControl(new maplibregl.NavigationControl());
+    window.__ugrcDebug = { before, after }; // temporary, for local diagnosis only
 
     // Note: UGRC's own font-glyph endpoint 200s with a JSON error body (not real PBF) for a
     // few font names some LiteLabels layers reference - a pre-existing gap in their live font
