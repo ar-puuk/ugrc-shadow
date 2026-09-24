@@ -111,11 +111,12 @@ into a loadable style.
 ┌─────────────────────────────────────────────────────────────┐
 │ header: brand · "Start from" template/upload picker · [↓]   │  (↓ = download)
 ├───────────────┬───────────────────────────────────────────────┤
-│ layer list     │                                               │
-│ (search box +  │              MapLibre map                    │
-│  tree grouped  │        (single map, or split via              │
-│  by id path -  │         compare mode toggle)                  │
-│  see §6)       │                                               │
+│ ▸ VectorHillshade │                                            │
+│ ▾ LiteBase        │              MapLibre map                 │
+│    (search box +  │        (always renders all 3 services     │
+│     layer tree -   │         merged, live - regardless of      │
+│     see §6)        │         which one you're editing)         │
+│ ▸ LiteLabels      │                                            │
 │                ├───────────────────────────────────────────────┤
 │                │ property panel for selected layer             │
 │                │ (Layout / Paint / Filter / Zoom tabs)          │
@@ -126,19 +127,36 @@ Compare mode is a header toggle, not a separate page: off = single full-bleed ma
 on = the existing `maplibre-gl-compare` slider, left/right pickers reused from `index.html`'s
 pattern (§7) but with two extra entries prepended: **"Your upload"** and **"Current edit."**
 
-## 6. Layer list
+## 6. Layer list: one service open at a time
 
-UGRC's generated layer ids are already slash-delimited pseudo-paths (e.g.
-`Base/PARKS & REC/Cemeteries_Poly`, `Base/Utah/Utah/1`) — a free grouping hierarchy. Build a
-collapsible tree from splitting `id` on `/`, rooted one level up by originating service
-(`VectorHillshade` / `LiteBase` / `LiteLabels`, recoverable from which merged source each layer
-points at). Each leaf row: visibility toggle (flips `layout.visibility` between `visible`/`none`),
-a small type icon (fill/line/symbol/circle/raster), and a color swatch preview when the layer has
-one dominant paint color. A text filter box above the tree (matches on id substring) — necessary
-given `LiteBase` alone is ~10k lines / several hundred layers.
+The left panel is an accordion of the 3 services (`VectorHillshade`, `LiteBase`, `LiteLabels` —
+recoverable from each layer's `metadata["ugrc:service"]`, §3), one open at a time. Opening a
+service reveals its own layer tree; the other two collapse to a single header row. This keeps the
+working set small (`LiteBase` alone is ~10k lines / several hundred layers — showing all 3
+services' full trees at once would be unusable) and matches the mental model set by §3/§8: you're
+really editing 3 separate style documents, previewed together live, exported either together or
+apart.
 
-An uploaded arbitrary style won't have this slash-path convention — fall back to a flat
-alphabetical list grouped only by `type` when ids don't contain `/`.
+Within the open service, UGRC's generated layer ids are already slash-delimited pseudo-paths (e.g.
+`Base/PARKS & REC/Cemeteries_Poly`, `Base/Utah/Utah/1`) — build a collapsible tree from splitting
+`id` on `/`. Each leaf row: a drag handle for reordering (below), a visibility toggle (flips
+`layout.visibility` between `visible`/`none`), a small type icon (fill/line/symbol/circle/raster),
+and a color swatch preview when the layer has one dominant paint color. A text filter box above the
+tree matches on id substring.
+
+An uploaded arbitrary style won't have a service split at all (§3) — it gets a single un-tabbed
+tree instead of the 3-way accordion, falling back to a flat alphabetical list grouped only by
+`type` when ids don't contain `/`.
+
+**Reordering**: drag-to-reorder is scoped to layers *within* the currently-open service only —
+dragging a layer only ever changes its position among that service's own layers, never moves it
+into another service's list. This is a deliberate constraint, not a missing feature: layer order is
+paint order, and each service's `layers` array reorders losslessly into that service's own file on
+export (§8), but a *cross*-service order can't be — three separately-loaded style files get added
+to a map as three contiguous blocks (per the README's "add all three style layers the same way"),
+so there's no way to express "this LiteBase layer paints above that LiteLabels layer" once they're
+split back apart. The relative order *between* services stays fixed at VectorHillshade → LiteBase →
+LiteLabels (bottom to top), matching `mergeStyles()`'s existing order and current usage guidance.
 
 ## 7. Property panel
 
@@ -242,7 +260,8 @@ like the rest of the site.
    otherwise need. No editor code yet.
 2. **Scaffold**: `editor.html` loads a template or upload, renders a single map, raw-JSON
    read-only view, and the combined single-file download (simplest export path end to end).
-3. **Layer list** (§6): tree/list + search + visibility toggle + selection.
+3. **Layer list** (§6): 3-service accordion, tree/list + search + visibility toggle + selection,
+   then drag-to-reorder within the open service.
 4. **Property panel** (§7): typed inputs for Paint/Layout, then Filter and Zoom tabs, then the
    raw-JSON fallback field and the per-layer/global "changed" diffing.
 5. **3-file export** (§3/§8): the un-merge step and the "add layer → pick a service" flow —
