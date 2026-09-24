@@ -7,6 +7,15 @@
 // than mounting one instance per row (analogous to Dropdown, but more like a single native color
 // dialog shared across triggers than a per-widget component).
 //
+// The hue/alpha sliders are plain draggable <div>s (a root + a thumb), NOT native
+// <input type="range"> elements - matching what the reference actually is under the hood (Radix
+// UI's Slider primitive: styled divs with pointer-drag logic), not a native form control. An
+// earlier version of this file tried to reskin a real <input type="range"> instead, which meant
+// fighting each browser engine's own vendor-prefixed pseudo-element model
+// (::-webkit-slider-runnable-track vs ::-moz-range-track) just to draw a gradient on a track - a
+// plain div has no such pseudo-elements to fight, and reuses the exact same pointer-drag approach
+// already used for the square below.
+//
 // Deliberately diverges from kibo-ui's alpha slider in one way: kibo's alpha track overlays the
 // checkerboard with a generic transparent-to-black/white fade, which doesn't actually show what
 // increasing alpha does to THIS color. This version fades the checkerboard into the current
@@ -49,11 +58,53 @@ function hsvToRgb(h, s, v) {
   return { r: (r1 + m) * 255, g: (g1 + m) * 255, b: (b1 + m) * 255 };
 }
 
+/** Wires a plain <div> up as a 1D draggable slider (pointer drag + arrow-key/Home/End keyboard
+ * support), calling `onSeek(value)` with a number clamped to [min, max]. No visual state lives
+ * here - the caller re-renders (thumb position, track color, etc.) from inside `onSeek`. */
+function wireLinearSlider(el, min, max, onSeek) {
+  let dragging = false;
+  const seekFromClientX = (clientX) => {
+    const rect = el.getBoundingClientRect();
+    const t = rect.width === 0 ? 0 : Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    onSeek(min + t * (max - min));
+  };
+  el.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    dragging = true;
+    el.setPointerCapture(e.pointerId);
+    seekFromClientX(e.clientX);
+  });
+  el.addEventListener("pointermove", (e) => { if (dragging) seekFromClientX(e.clientX); });
+  el.addEventListener("pointerup", (e) => { dragging = false; el.releasePointerCapture(e.pointerId); });
+  el.addEventListener("keydown", (e) => {
+    const current = Number(el.getAttribute("aria-valuenow")) || min;
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); onSeek(Math.min(max, current + 1)); }
+    else if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); onSeek(Math.max(min, current - 1)); }
+    else if (e.key === "Home") { e.preventDefault(); onSeek(min); }
+    else if (e.key === "End") { e.preventDefault(); onSeek(max); }
+  });
+}
+
+function makeSlider(labelText, min, max) {
+  const el = document.createElement("div");
+  el.className = "cp-slider";
+  el.setAttribute("role", "slider");
+  el.setAttribute("aria-label", labelText);
+  el.setAttribute("aria-valuemin", String(min));
+  el.setAttribute("aria-valuemax", String(max));
+  el.tabIndex = 0;
+  const thumb = document.createElement("div");
+  thumb.className = "cp-slider-thumb";
+  el.appendChild(thumb);
+  return { el, thumb };
+}
+
 export class ColorPickerPopover {
   constructor() {
     this._onChange = null;
     this._triggerEl = null;
     this.hsv = { h: 0, s: 0, v: 0 };
+    this.alpha = 100; // 0-100
 
     this.el = document.createElement("div");
     this.el.className = "cp-popover";
@@ -69,12 +120,10 @@ export class ColorPickerPopover {
 
     const sliders = document.createElement("div");
     sliders.className = "cp-sliders";
-    this.hueEl = document.createElement("input");
-    this.hueEl.type = "range"; this.hueEl.className = "cp-hue"; this.hueEl.min = "0"; this.hueEl.max = "360"; this.hueEl.step = "1";
-    this.hueEl.setAttribute("aria-label", "Hue");
-    this.alphaEl = document.createElement("input");
-    this.alphaEl.type = "range"; this.alphaEl.className = "cp-alpha"; this.alphaEl.min = "0"; this.alphaEl.max = "100"; this.alphaEl.step = "1";
-    this.alphaEl.setAttribute("aria-label", "Alpha (transparency)");
+    const hue = makeSlider("Hue", 0, 360);
+    this.hueEl = hue.el; this.hueEl.classList.add("cp-hue-slider"); this.hueThumbEl = hue.thumb;
+    const alpha = makeSlider("Alpha (transparency)", 0, 100);
+    this.alphaEl = alpha.el; this.alphaEl.classList.add("cp-alpha-slider"); this.alphaThumbEl = alpha.thumb;
     sliders.append(this.hueEl, this.alphaEl);
 
     const fields = document.createElement("div");
@@ -106,7 +155,7 @@ export class ColorPickerPopover {
           const result = await new window.EyeDropper().open();
           const { r, g, b } = hexToRgb(result.sRGBHex);
           this.hsv = rgbToHsv(r, g, b);
-          this._syncFromHsv();
+          this._syncVisuals();
           this._emit();
         } catch { /* user cancelled the eyedropper - not an error */ }
       });
@@ -138,8 +187,8 @@ export class ColorPickerPopover {
     this._onChange = onChange;
     const { r, g, b } = hexToRgb(hex);
     this.hsv = rgbToHsv(r, g, b);
-    this.alphaEl.value = String(Math.round(alpha * 100));
-    this._syncFromHsv();
+    this.alpha = Math.round(alpha * 100);
+    this._syncVisuals();
     this.el.hidden = false;
     this._position();
   }
@@ -173,86 +222,86 @@ export class ColorPickerPopover {
     return rgbToHex(r, g, b);
   }
 
-  /** Re-renders every visual piece (square background/thumb, hue thumb, alpha track tint, preview
-   * chip, hex field) from `this.hsv` + the alpha slider's current value - called after any
-   * internal state change, regardless of which control caused it. */
-  _syncFromHsv() {
+  /** Re-renders every visual piece (square background/thumb, hue thumb position, alpha thumb
+   * position + track tint, preview chip, hex/alpha fields) from `this.hsv`/`this.alpha` - called
+   * after any internal state change, regardless of which control caused it. */
+  _syncVisuals() {
     const { h, s, v } = this.hsv;
     this.squareEl.style.background =
       `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent), hsl(${h}, 100%, 50%)`;
     this.thumbEl.style.left = `${s}%`;
     this.thumbEl.style.top = `${100 - v}%`;
-    this.hueEl.value = String(Math.round(h));
 
-    const hex = this._currentHex();
+    this.hueThumbEl.style.left = `${(h / 360) * 100}%`;
+    this.hueEl.setAttribute("aria-valuenow", String(Math.round(h)));
+
     const { r, g, b } = this._currentRgb();
-    // A custom property, not a direct style.backgroundImage: the checkerboard base lives in CSS on
-    // .cp-alpha AND its ::-webkit-slider-runnable-track/::-moz-range-track pseudo-elements (JS can't
-    // set inline styles on a pseudo-element directly), layered under this dynamic tint - custom
-    // properties inherit from an element into its own pseudo-elements, so setting it here reaches
-    // all three.
+    this.alphaThumbEl.style.left = `${this.alpha}%`;
+    this.alphaEl.setAttribute("aria-valuenow", String(Math.round(this.alpha)));
+    // A CSS custom property rather than a plain style.background: .cp-alpha-slider's own
+    // stylesheet rule layers this UNDER the static checkerboard (var(--checker-bg)) - setting
+    // background directly here would wipe that second layer out instead of composing with it.
     this.alphaEl.style.setProperty("--cp-tint", `linear-gradient(to right, transparent, rgb(${r | 0}, ${g | 0}, ${b | 0}))`);
-    this.previewEl.style.setProperty("--cp-preview-color", `rgba(${r | 0}, ${g | 0}, ${b | 0}, ${Number(this.alphaEl.value) / 100})`);
-    this.hexInputEl.value = hex;
-    this.alphaInputEl.value = this.alphaEl.value;
+    this.previewEl.style.setProperty("--cp-preview-color", `rgba(${r | 0}, ${g | 0}, ${b | 0}, ${this.alpha / 100})`);
+
+    this.hexInputEl.value = this._currentHex();
+    this.alphaInputEl.value = String(Math.round(this.alpha));
   }
 
   _emit() {
     if (!this._onChange) return;
-    const alpha = Number(this.alphaEl.value) / 100;
+    const alphaFraction = this.alpha / 100;
     const { r, g, b } = this._currentRgb();
     const hex = rgbToHex(r, g, b);
-    const formatted = alpha >= 1
+    const formatted = alphaFraction >= 1
       ? hex
-      : `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${Math.round(alpha * 100) / 100})`;
+      : `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${Math.round(alphaFraction * 100) / 100})`;
     this._onChange(formatted);
   }
 
   _wireInteractions() {
-    let dragging = false;
+    let draggingSquare = false;
     const moveSquare = (clientX, clientY) => {
       const rect = this.squareEl.getBoundingClientRect();
-      const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+      const x = rect.width === 0 ? 0 : Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const y = rect.height === 0 ? 0 : Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
       this.hsv = { h: this.hsv.h, s: x * 100, v: (1 - y) * 100 };
-      this._syncFromHsv();
+      this._syncVisuals();
       this._emit();
     };
     this.squareEl.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      dragging = true;
+      draggingSquare = true;
       this.squareEl.setPointerCapture(e.pointerId);
       moveSquare(e.clientX, e.clientY);
     });
-    this.squareEl.addEventListener("pointermove", (e) => { if (dragging) moveSquare(e.clientX, e.clientY); });
-    this.squareEl.addEventListener("pointerup", (e) => { dragging = false; this.squareEl.releasePointerCapture(e.pointerId); });
+    this.squareEl.addEventListener("pointermove", (e) => { if (draggingSquare) moveSquare(e.clientX, e.clientY); });
+    this.squareEl.addEventListener("pointerup", (e) => { draggingSquare = false; this.squareEl.releasePointerCapture(e.pointerId); });
 
-    this.hueEl.addEventListener("input", () => {
-      this.hsv = { ...this.hsv, h: Number(this.hueEl.value) };
-      this._syncFromHsv();
+    wireLinearSlider(this.hueEl, 0, 360, (h) => {
+      this.hsv = { ...this.hsv, h };
+      this._syncVisuals();
       this._emit();
     });
-    this.alphaEl.addEventListener("input", () => {
-      this.alphaInputEl.value = this.alphaEl.value;
-      this.previewEl.style.setProperty(
-        "--cp-preview-color",
-        (() => { const { r, g, b } = this._currentRgb(); return `rgba(${r | 0}, ${g | 0}, ${b | 0}, ${Number(this.alphaEl.value) / 100})`; })()
-      );
+    wireLinearSlider(this.alphaEl, 0, 100, (a) => {
+      this.alpha = a;
+      this._syncVisuals();
       this._emit();
     });
+
     this.hexInputEl.addEventListener("change", () => {
       const m = this.hexInputEl.value.trim().match(/^#?([0-9a-f]{6})$/i);
       if (!m) { this.hexInputEl.value = this._currentHex(); return; }
       const { r, g, b } = hexToRgb(`#${m[1]}`);
       this.hsv = rgbToHsv(r, g, b);
-      this._syncFromHsv();
+      this._syncVisuals();
       this._emit();
     });
     this.alphaInputEl.addEventListener("change", () => {
       const n = Math.max(0, Math.min(100, Math.round(Number(this.alphaInputEl.value))));
-      if (Number.isNaN(n)) { this.alphaInputEl.value = this.alphaEl.value; return; }
-      this.alphaEl.value = String(n);
-      this._syncFromHsv();
+      if (Number.isNaN(n)) { this.alphaInputEl.value = String(Math.round(this.alpha)); return; }
+      this.alpha = n;
+      this._syncVisuals();
       this._emit();
     });
   }

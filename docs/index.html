@@ -301,32 +301,30 @@
     cursor: crosshair; touch-action: none;
   }
   .cp-square-thumb {
-    position: absolute; width: 14px; height: 14px; margin: -7px;
+    position: absolute; width: 16px; height: 16px; margin: -8px;
     border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .5);
     pointer-events: none;
   }
   .cp-sliders { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
-  .cp-hue, .cp-alpha { width: 100%; }
-  /* input[type="range"].cp-hue rather than plain .cp-hue: the generic input[type="range"] reset
-     rules further down (higher specificity - element + attribute selector) would otherwise beat a
-     bare class selector's background-image regardless of which comes later in the file.
-     -webkit-*/-moz-* pseudo-elements are deliberately each their OWN rule, never combined in one
-     comma-separated selector list: a browser that doesn't recognize even one selector in such a
-     list drops the ENTIRE rule, not just the branch it doesn't understand - so combining them
-     would make Chrome discard the whole thing over the unknown ::-moz-range-track, and Firefox
-     discard it over the unknown ::-webkit-slider-runnable-track. */
-  input[type="range"].cp-hue::-webkit-slider-runnable-track {
-    background-image: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  /* Plain divs, not native <input type="range">s - see docs/assets/colorpicker.js's header comment
+     for why. No vendor-prefixed pseudo-elements involved, so no cross-engine cascade fights: what's
+     declared here is what renders. Rail 12px / thumb 16px matches the reference's own proportions
+     (Radix Slider Track h-3 inside a Root h-4, Thumb h-4) - the thumb is deliberately larger than
+     the rail, overhanging it by 2px on each side, not the same size as it. */
+  .cp-slider {
+    position: relative; width: 100%; height: 12px; border-radius: 999px; cursor: pointer; touch-action: none;
   }
-  input[type="range"].cp-hue::-moz-range-track {
-    background-image: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  .cp-slider:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.35); }
+  .cp-slider-thumb {
+    position: absolute; top: 50%; left: 0; width: 16px; height: 16px; margin: -8px 0 0 -8px;
+    border-radius: 50%; background: hsl(var(--background)); border: 2px solid hsl(var(--primary));
+    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.3); pointer-events: none;
   }
-  input[type="range"].cp-alpha::-webkit-slider-runnable-track {
-    background-image: var(--cp-tint, none), var(--checker-bg);
-    background-size: auto, 8px 8px, 8px 8px, 8px 8px, 8px 8px;
-    background-position: 0 0, 0 0, 0 4px, 4px -4px, -4px 0;
-  }
-  input[type="range"].cp-alpha::-moz-range-track {
+  .cp-hue-slider { background-image: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+  /* --checker-bg is 4 gradient layers on its own, so combined with the tint that's 5 total - size/
+     position need a value per layer (CSS cycles a shorter list otherwise, which would size/offset
+     the checker's 4 sub-layers wrong and break the alternating pattern). */
+  .cp-alpha-slider {
     background-image: var(--cp-tint, none), var(--checker-bg);
     background-size: auto, 8px 8px, 8px 8px, 8px 8px, 8px 8px;
     background-position: 0 0, 0 0, 0 4px, 4px -4px, -4px 0;
