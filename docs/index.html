@@ -303,17 +303,26 @@
   .prop-empty { color: hsl(var(--muted-foreground)); font-size: 13px; }
   .prop-layer-id { font-size: 13px; font-weight: 600; word-break: break-word; margin: 0 0 2px; }
   .prop-layer-type { font-size: 11px; color: hsl(var(--muted-foreground)); margin: 0 0 14px; }
-  .prop-row { position: relative; margin-bottom: 14px; }
+  .prop-row { margin-bottom: 14px; }
   .prop-row label { display: block; font-size: 11.5px; color: hsl(var(--muted-foreground)); margin-bottom: 5px; }
-  .prop-row-removable { padding-right: 28px; } /* keeps the row's own content clear of the "x" */
+  /* Label + remove button share one flex row instead of the button floating over the row's
+     corner - a plain inline ghost action next to the label it belongs to, shadcn's own idiom for
+     a per-row destructive action (e.g. a removable tag/field row), not a detached overlay. */
+  .prop-row-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 5px; }
+  .prop-row-head label { margin-bottom: 0; } /* the head row itself owns the spacing below now */
+  .prop-row-remove-slot { display: contents; } /* placeholder only - never actually renders */
   .prop-row-remove {
-    position: absolute; top: -2px; right: -2px;
     display: flex; align-items: center; justify-content: center;
-    width: 22px; height: 22px; border: 1px solid transparent; border-radius: calc(var(--radius) - 3px);
+    width: 20px; height: 20px; flex: none; border: none; border-radius: calc(var(--radius) - 3px);
     background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer;
+    opacity: 0; transition: opacity .1s ease, background-color .15s ease, color .15s ease;
   }
-  .prop-row-remove svg { width: 14px; height: 14px; stroke-width: 2.5; }
-  .prop-row-remove:hover { background: hsl(var(--muted)); border-color: hsl(var(--destructive)); color: hsl(var(--destructive)); }
+  /* Subtle by default, like most compact dashboards' per-row actions - revealed by hovering
+     anywhere in the row (not just the button itself, so it's easy to discover) or by keyboard
+     focus, never permanently visible for every single property at once. */
+  .prop-row:hover .prop-row-remove, .prop-row-remove:focus-visible { opacity: 1; }
+  .prop-row-remove svg { width: 13px; height: 13px; }
+  .prop-row-remove:hover { background: hsl(var(--muted)); color: hsl(var(--destructive)); }
   .prop-row-remove:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
   .add-property-row .prop-select { color: hsl(var(--muted-foreground)); }
   .color-row { display: flex; align-items: center; gap: 8px; }
@@ -1464,10 +1473,20 @@ async function main() {
     return value.toFixed(decimals);
   }
 
-  function propRowLabel(prop) {
+  /** A row's label, paired with an empty slot renderPropertyRow() later fills with a remove
+   * button (or leaves empty, for rows that were never wrapped with one - the Filter/Zoom sections
+   * build their own headers directly and don't call this). Kept as one flex row rather than an
+   * absolutely-positioned button floating over the row's corner - a plain inline ghost action next
+   * to the label it belongs to, not detached from the row's actual content. */
+  function propRowHead(prop) {
+    const head = document.createElement("div");
+    head.className = "prop-row-head";
     const label = document.createElement("label");
     label.textContent = prop;
-    return label;
+    const slot = document.createElement("span");
+    slot.className = "prop-row-remove-slot";
+    head.append(label, slot);
+    return head;
   }
 
   /** A shadcn/ui-style swatch trigger (see docs/assets/colorpicker.js) instead of the OS-native
@@ -1479,7 +1498,7 @@ async function main() {
   function renderColorRow(layer, kind, prop) {
     const wrap = document.createElement("div");
     wrap.className = "prop-row";
-    wrap.appendChild(propRowLabel(prop));
+    wrap.appendChild(propRowHead(prop));
 
     const bucket = kind === "layout" ? layer.layout : layer.paint;
     const value = bucket[prop];
@@ -1532,7 +1551,7 @@ async function main() {
   function renderRangeRow(layer, kind, prop, spec) {
     const wrap = document.createElement("div");
     wrap.className = "prop-row";
-    wrap.appendChild(propRowLabel(prop));
+    wrap.appendChild(propRowHead(prop));
 
     const bucket = kind === "layout" ? layer.layout : layer.paint;
     const raw = bucket[prop];
@@ -1561,7 +1580,7 @@ async function main() {
   function renderEnumRow(layer, kind, prop, spec) {
     const wrap = document.createElement("div");
     wrap.className = "prop-row";
-    wrap.appendChild(propRowLabel(prop));
+    wrap.appendChild(propRowHead(prop));
 
     const bucket = kind === "layout" ? layer.layout : layer.paint;
     const value = bucket[prop];
@@ -1585,6 +1604,8 @@ async function main() {
   function renderBooleanRow(layer, kind, prop) {
     const wrap = document.createElement("div");
     wrap.className = "prop-row";
+    const head = document.createElement("div");
+    head.className = "prop-row-head";
     const label = document.createElement("label");
     label.className = "checkbox-label";
     const checkbox = document.createElement("input");
@@ -1596,14 +1617,17 @@ async function main() {
       refreshRawJson(layer);
     });
     label.append(checkbox, document.createTextNode(" " + prop));
-    wrap.appendChild(label);
+    const slot = document.createElement("span");
+    slot.className = "prop-row-remove-slot";
+    head.append(label, slot);
+    wrap.appendChild(head);
     return wrap;
   }
 
   function renderStringRow(layer, kind, prop) {
     const wrap = document.createElement("div");
     wrap.className = "prop-row";
-    wrap.appendChild(propRowLabel(prop));
+    wrap.appendChild(propRowHead(prop));
 
     const bucket = kind === "layout" ? layer.layout : layer.paint;
     const value = bucket[prop];
@@ -1626,7 +1650,7 @@ async function main() {
   function renderRawPropertyRow(layer, kind, prop) {
     const wrap = document.createElement("div");
     wrap.className = "prop-row";
-    wrap.appendChild(propRowLabel(prop));
+    wrap.appendChild(propRowHead(prop));
 
     const bucket = kind === "layout" ? layer.layout : layer.paint;
     const textarea = document.createElement("textarea");
@@ -1662,14 +1686,18 @@ async function main() {
     return renderRawPropertyRow(layer, kind, prop);
   }
 
-  /** Wraps renderPropertyRowInner()'s row with a small "x" in its top-right corner to remove that
-   * property entirely - the companion to "Add property" below, so adding one isn't a one-way door
-   * (the only other way back would be resetting the whole layer, losing every other edit too).
+  /** Wraps renderPropertyRowInner()'s row, filling the empty slot every renderer leaves in its
+   * .prop-row-head (see propRowHead()) with a real "x" button to remove that property entirely -
+   * the companion to "Add property" below, so adding one isn't a one-way door (the only other way
+   * back would be resetting the whole layer, losing every other edit too). Inline next to the
+   * label rather than floating over a corner of the row, and hidden until the row is hovered/
+   * focused (see .prop-row-remove's CSS) rather than permanently on screen for every property.
    * Removing sets the property back to unset (MapLibre's own meaning for a paint/layout property
    * set to undefined), not to some placeholder value. */
   function renderPropertyRow(layer, kind, prop) {
     const row = renderPropertyRowInner(layer, kind, prop);
-    row.classList.add("prop-row-removable");
+    const slot = row.querySelector(".prop-row-remove-slot");
+    if (!slot) return row; // shouldn't happen - every renderer builds one via propRowHead()
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
     removeBtn.className = "prop-row-remove";
@@ -1685,7 +1713,7 @@ async function main() {
       refreshRawJson(layer);
       renderPropertyPanel();
     });
-    row.appendChild(removeBtn);
+    slot.replaceWith(removeBtn);
     return row;
   }
 
