@@ -556,10 +556,13 @@ const CENTER = [-111.891, 40.761]; // Salt Lake City
 const ZOOM = 10;
 const DEFAULT_TEMPLATE = ORIGINAL_KEY; // "Lite" - UGRC's own live basemap
 
-// The 3 services a built-in template's merged style is made of (bottom -> top, same order
-// mergeStyles() uses) - the layer list is an accordion over these, one open at a time
-// (STYLE_EDITOR_PLAN.md §6). An uploaded style has no such split and falls back to a flat list.
-const SERVICE_ORDER = ["VectorHillshade", "LiteBase", "LiteLabels"];
+// The 3 services a built-in template's merged style is made of - the layer list is an accordion
+// over these, one open at a time (STYLE_EDITOR_PLAN.md §6). An uploaded style has no such split
+// and falls back to a flat list. This is display order only, top -> bottom in the sidebar, and
+// deliberately the REVERSE of mergeStyles()'s bottom -> top paint order (LiteLabels paints on top
+// of everything, so it's listed first here) - a "layers panel" convention (Photoshop/Figma/etc.
+// list the topmost-drawn layer first), independent of the actual on-map z-order.
+const SERVICE_ORDER = ["LiteLabels", "LiteBase", "VectorHillshade"];
 const SERVICE_ABBR = { VectorHillshade: "VH", LiteBase: "LB", LiteLabels: "LL" };
 
 // One spec per GL property name this editor knows how to render a typed control for (property
