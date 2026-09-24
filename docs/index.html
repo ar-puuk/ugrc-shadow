@@ -180,13 +180,34 @@
 
   /* Mounted directly on #maps (a sibling of #before/#after, not inside either), so the compare
      slider's clip - which only clips the two map containers - never hides it. Top offset is set
-     from JS (header height varies - the picker row wraps at phone widths), not hardcoded here. */
-  #nav-control { position: absolute; right: 14px; z-index: 4; }
-  .maplibregl-ctrl-group {
-    border-radius: 10px !important;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, .35) !important;
-    overflow: hidden;
+     from JS (header height varies - the picker row wraps at phone widths), not hardcoded here.
+     The glass treatment (background/blur/border/shadow) lives on #nav-control itself rather than
+     .maplibregl-ctrl-group, so it isn't affected by the icon-inverting filter below. */
+  #nav-control {
+    position: absolute; right: 14px; z-index: 4;
+    border-radius: 10px; overflow: hidden;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-top-color: rgba(255, 255, 255, .18);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
   }
+  .maplibregl-ctrl-group {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .maplibregl-ctrl-group button {
+    background-color: transparent !important;
+  }
+  .maplibregl-ctrl-group button:hover { background-color: rgba(255, 255, 255, .1) !important; }
+  .maplibregl-ctrl-group button + button { border-top: 1px solid rgba(255, 255, 255, .14) !important; }
+  /* MapLibre's zoom/compass icons are baked as dark-gray (#333) SVG data-URIs with no
+     currentColor/theming hook, so recoloring them for a dark backdrop means inverting the
+     rendered pixels rather than restyling a color property - transparent areas are unaffected
+     since filter only touches painted pixels, so the icon flips from dark-on-transparent to
+     light-on-transparent cleanly. */
+  .maplibregl-ctrl-icon { filter: invert(1) brightness(1.2); }
 
   #status {
     position: absolute; z-index: 6; top: 50%; left: 50%; transform: translate(-50%, -50%);
