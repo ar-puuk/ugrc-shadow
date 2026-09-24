@@ -149,6 +149,18 @@
   .service-chevron { width: 1em; flex: none; color: var(--text-dim); }
   .service-name { flex: 1 1 auto; }
   .service-count { flex: none; font-size: 10.5px; font-weight: 500; color: var(--text-dim); }
+  .group-body { padding-left: 12px; } /* compounds through nesting - deeper groups indent further */
+  .group-header {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    padding: 6px 10px 6px 8px; border: none; border-bottom: 1px solid rgba(255, 255, 255, .04);
+    background: transparent; color: var(--text-dim);
+    font-size: 11.5px; font-weight: 600; cursor: pointer; text-align: left;
+  }
+  .group-header:hover { background: rgba(255, 255, 255, .05); color: var(--text); }
+  .group-header:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+  .group-chevron { width: 1em; flex: none; }
+  .group-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .group-count { flex: none; font-size: 10px; }
   .layer-row {
     display: flex; align-items: center; gap: 8px;
     padding: 6px 10px; cursor: pointer; border-bottom: 1px solid rgba(255, 255, 255, .04);
@@ -392,6 +404,7 @@ async function main() {
   let pristineOrder = null; // layer ids in their as-loaded order, for resetAll() and orderChanged
   let selectedLayerId = null;
   let openService = "LiteBase"; // which accordion section is expanded; null = none
+  let openGroups = new Set(); // groupKey(service, path) values for manually-expanded nested groups
   let draggingId = null;
   let draggingService = null;
   // Ids of layers currently differing from their pristine snapshot. Tracked incrementally (one
@@ -470,10 +483,11 @@ async function main() {
     for (const service of SERVICE_ORDER) {
       const inService = layers.filter((ly) => ly.metadata && ly.metadata["ugrc:service"] === service);
       if (inService.length === 0) continue;
-      const matches = inService.filter((ly) => !filter || ly.id.toLowerCase().includes(filter));
-      if (matches.length > 0) anyMatch = true;
-      const isOpen = filter ? matches.length > 0 : service === openService;
-      layerListEl.appendChild(renderServiceSection(service, inService.length, matches, isOpen));
+      const tree = buildTree(inService);
+      const matchCount = countMatches(tree, filter);
+      if (matchCount > 0) anyMatch = true;
+      const isOpen = filter ? matchCount > 0 : service === openService;
+      layerListEl.appendChild(renderServiceSection(service, inService.length, tree, isOpen, filter));
     }
     if (filter && !anyMatch) layerListEl.appendChild(emptyMessage("No layers match that filter."));
   }
@@ -484,10 +498,98 @@ async function main() {
       layerListEl.appendChild(emptyMessage("No layers match that filter."));
       return;
     }
-    for (const ly of matches) layerListEl.appendChild(renderLayerRow(ly, null));
+    for (const ly of matches) layerListEl.appendChild(renderLayerRow(ly, null, ly.id));
   }
 
-  function renderServiceSection(service, totalCount, matches, isOpen) {
+  /** Builds a tree from each layer's id path, e.g. "Base/PARKS & REC/Cemeteries_Poly" - the
+   * leading segment (the service's own id prefix: "Base"/"Labels"/"Hillshade", always the same one
+   * value for every layer in that service) is dropped since the service's accordion header already
+   * says as much; each remaining segment becomes a nested group, so "PARKS & REC" and
+   * "Utah Parks And Monuments" get their own (sub-)accordion sections rather than one flat list per
+   * service. A layer whose id has no further segments (e.g. "Base/WesternStates") is a bare leaf
+   * directly under the service, not inside any group. */
+  function buildTree(layers) {
+    const root = { children: new Map(), layers: [] };
+    for (const ly of layers) {
+      const parts = ly.id.split("/").slice(1);
+      let node = root;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const seg = parts[i];
+        let child = node.children.get(seg);
+        if (!child) { child = { children: new Map(), layers: [] }; node.children.set(seg, child); }
+        node = child;
+      }
+      node.layers.push(ly);
+    }
+    return root;
+  }
+
+  function countMatches(node, filter) {
+    let n = 0;
+    for (const ly of node.layers) if (!filter || ly.id.toLowerCase().includes(filter)) n++;
+    for (const child of node.children.values()) n += countMatches(child, filter);
+    return n;
+  }
+
+  function groupKey(service, path) {
+    return `${service}::${path}`;
+  }
+
+  /** Renders one tree node's own bare leaves, then a (sub-)accordion section per child group.
+   * `pathSegments` are this node's segments relative to its service (e.g. ["PARKS & REC"]),
+   * used both as each leaf row's shortened display label (the group name is already visible in
+   * its own header, so repeating it per row would be noise) and as the key tracking which nested
+   * groups are manually expanded. */
+  function renderNodeChildren(node, pathSegments, service, filter, container) {
+    for (const ly of node.layers) {
+      if (filter && !ly.id.toLowerCase().includes(filter)) continue;
+      const tail = ly.id.split("/").slice(1 + pathSegments.length).join("/");
+      container.appendChild(renderLayerRow(ly, service, tail || ly.id));
+    }
+    for (const [name, child] of node.children) {
+      const childPath = [...pathSegments, name];
+      const matchCount = countMatches(child, filter);
+      if (filter && matchCount === 0) continue;
+      const key = groupKey(service, childPath.join("/"));
+      const isOpen = filter ? matchCount > 0 : openGroups.has(key);
+      container.appendChild(renderGroupSection(service, childPath, name, child, matchCount, isOpen, filter));
+    }
+  }
+
+  function renderGroupSection(service, pathSegments, name, node, count, isOpen, filter) {
+    const section = document.createElement("div");
+    section.className = "group-section";
+
+    const header = document.createElement("button");
+    header.type = "button";
+    header.className = "group-header";
+    header.setAttribute("aria-expanded", String(isOpen));
+    const chevron = document.createElement("span");
+    chevron.className = "group-chevron";
+    chevron.textContent = isOpen ? "▾" : "▸";
+    const label = document.createElement("span");
+    label.className = "group-name";
+    label.textContent = name;
+    const countEl = document.createElement("span");
+    countEl.className = "group-count";
+    countEl.textContent = String(count);
+    header.append(chevron, label, countEl);
+    header.addEventListener("click", () => {
+      const key = groupKey(service, pathSegments.join("/"));
+      if (openGroups.has(key)) openGroups.delete(key); else openGroups.add(key);
+      renderLayerList();
+    });
+    section.appendChild(header);
+
+    const body = document.createElement("div");
+    body.className = "group-body";
+    body.hidden = !isOpen;
+    if (isOpen) renderNodeChildren(node, pathSegments, service, filter, body);
+    section.appendChild(body);
+    return section;
+  }
+
+  function renderServiceSection(service, totalCount, tree, isOpen, filter) {
     const section = document.createElement("div");
     section.className = "service-section";
 
@@ -516,7 +618,7 @@ async function main() {
     const body = document.createElement("div");
     body.className = "service-body";
     body.hidden = !isOpen;
-    for (const ly of matches) body.appendChild(renderLayerRow(ly, service));
+    if (isOpen) renderNodeChildren(tree, [], service, filter, body);
     section.appendChild(body);
     return section;
   }
@@ -524,8 +626,10 @@ async function main() {
   /** `service` is the accordion section this row lives in - drag-to-reorder is wired up only when
    * it's given (STYLE_EDITOR_PLAN.md §6: reordering is scoped to within one service, since a
    * cross-service order can't survive the 3-file export). Passed null for the flat/upload list,
-   * which also has no per-row service tag since there's no section header to make it redundant. */
-  function renderLayerRow(ly, service) {
+   * which also has no per-row service tag since there's no section header to make it redundant.
+   * `displayLabel` is what the row's text shows (the id tail within its group, or the full id in
+   * the flat list); search filtering and selection still always key off the layer's real `ly.id`. */
+  function renderLayerRow(ly, service, displayLabel) {
     const row = document.createElement("div");
     row.className = "layer-row" + (ly.id === selectedLayerId ? " is-selected" : "");
     row.setAttribute("role", "button");
@@ -597,7 +701,8 @@ async function main() {
 
     const idEl = document.createElement("span");
     idEl.className = "layer-id" + (!visible.checked ? " is-hidden-layer" : "");
-    idEl.textContent = ly.id;
+    idEl.textContent = displayLabel;
+    idEl.title = ly.id;
     row.appendChild(idEl);
 
     row.addEventListener("click", () => selectLayer(ly.id));
@@ -635,7 +740,15 @@ async function main() {
     selectedLayerId = id;
     const ly = current && current.style.layers.find((l) => l.id === id);
     const service = ly && ly.metadata && ly.metadata["ugrc:service"];
-    if (service) openService = service; // keep the section open if the search box is cleared next
+    if (service) {
+      openService = service; // keep the section open if the search box is cleared next
+      // Same for every nested group the layer lives in, e.g. selecting a search hit under
+      // Base/PARKS & REC/... expands "PARKS & REC" so it's still visible once the filter clears.
+      const parts = ly.id.split("/").slice(1);
+      for (let i = 0; i < parts.length - 1; i++) {
+        openGroups.add(groupKey(service, parts.slice(0, i + 1).join("/")));
+      }
+    }
     renderLayerList();
     renderPropertyPanel();
   }
@@ -826,6 +939,7 @@ async function main() {
     current = { style: built.style, serviceOriginals: built.serviceOriginals, label };
     snapshotPristine();
     selectedLayerId = null;
+    openGroups = new Set();
     map.setStyle(prepareForRender(current.style));
     download3Btn.disabled = !current.serviceOriginals;
     renderLayerList();
