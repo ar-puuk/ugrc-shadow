@@ -39,9 +39,20 @@
     { "note": "local roads",          "match": { "source_layer": "^Roads", "type": "line", "id": "/Local Roads" },                                       "paint": { "line-color": "@road_minor" } },
     { "note": "road casings (/1)",    "match": { "source_layer": "^Roads", "type": "line", "id": "/1$" },                                                "paint": { "line-color": "@road_casing" } },
 
-    { "note": "transit casing (/2)",  "match": { "source_layer": "^(CommuterRailRoutes_UTA|UTA_Trax_SingleLine)$", "id": "/2$" }, "paint": { "line-color": "@transit_casing" } },
-    { "note": "transit fill (/1)",    "match": { "source_layer": "^(CommuterRailRoutes_UTA|UTA_Trax_SingleLine)$", "id": "/1$" }, "paint": { "line-color": "@transit_fill" } },
-    { "note": "transit colour dash (keep hue)", "match": { "source_layer": "^(CommuterRailRoutes_UTA|UTA_Trax_SingleLine)$", "id": "/0$" }, "paint": { "line-color": { "tint": { "l": 0.48, "s_mult": 0.9 } } } },
-    { "note": "transit other",        "match": { "source_layer": "^UTA_Trax_SingleLine$", "id": "<all other values>" }, "paint": { "line-color": "@transit_other" } }
+    { "note": "transit casing (/2): borrowed from Vector_Overlay's neutral rail-track gray, replacing the tan tint that got lost behind the road palette", "match": { "source_layer": "^(CommuterRailRoutes_UTA|UTA_Trax_SingleLine)$", "id": "/2$" }, "paint": { "line-color": "@transit_casing" } },
+    { "note": "transit fill (/1): borrowed from Vector_Overlay (white, sits inside the gray casing)", "match": { "source_layer": "^(CommuterRailRoutes_UTA|UTA_Trax_SingleLine)$", "id": "/1$" }, "paint": { "line-color": "@transit_fill" } },
+
+    { "note": "commuter rail (FrontRunner) route color (/0): borrowed verbatim from Vector_Overlay",
+      "match": { "source_layer": "^CommuterRailRoutes_UTA$", "id": "/0$" }, "paint": { "line-color": { "color": "@transit_commuter", "alpha": 0.85 } } },
+    { "note": "TRAX Blue Line route color (/0): borrowed verbatim from Vector_Overlay",
+      "match": { "source_layer": "^UTA_Trax_SingleLine$", "id": "/B(2|3)?(_\\d+)?/0$" }, "paint": { "line-color": { "color": "@transit_blue", "alpha": 0.85 } } },
+    { "note": "TRAX Green Line route color (/0): borrowed verbatim from Vector_Overlay",
+      "match": { "source_layer": "^UTA_Trax_SingleLine$", "id": "/G(2|3)?(_\\d+)?/0$" }, "paint": { "line-color": { "color": "@transit_green", "alpha": 0.9 } } },
+    { "note": "TRAX Red Line route color (/0): borrowed verbatim from Vector_Overlay",
+      "match": { "source_layer": "^UTA_Trax_SingleLine$", "id": "/R(2|3)?(_\\d+)?/0$" }, "paint": { "line-color": { "color": "@transit_red", "alpha": 0.8 } } },
+    { "note": "TRAX S-Line route color (/0): borrowed verbatim from Vector_Overlay",
+      "match": { "source_layer": "^UTA_Trax_SingleLine$", "id": "/S(_\\d+)?/0$" }, "paint": { "line-color": { "color": "@transit_teal", "alpha": 0.85 } } },
+
+    { "note": "transit other: borrowed from Vector_Overlay's generic gray for anything unclassified", "match": { "source_layer": "^UTA_Trax_SingleLine$", "id": "<all other values>" }, "paint": { "line-color": "@transit_other" } }
   ]
 }
