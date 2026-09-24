@@ -91,7 +91,9 @@
   .dd-button {
     display: flex; align-items: center; gap: 8px;
     font: inherit; font-size: 13px; font-weight: 500; color: var(--text);
-    max-width: 12em;
+    width: 8em; /* fixed, not max-width - the button must not resize as the selected label
+                   changes length ("Lite" vs "Shadow" vs "Sol"), or the toolbar visibly
+                   reflows/jumps every time either side is switched */
     padding: 6px 8px 6px 10px;
     border: 1px solid transparent; border-radius: 7px;
     background-color: rgba(255, 255, 255, .05);
@@ -453,8 +455,8 @@ async function loadOptions() {
   const themes = await fetchJson("themes.json");
   const options = {
     [ORIGINAL_KEY]: {
-      label: "UGRC Original (live)",
-      description: "UGRC's live Lite basemap, fetched directly from their ArcGIS services.",
+      label: "Lite",
+      description: "UGRC's original Lite basemap, fetched live and unmodified from their ArcGIS services.",
     },
   };
   for (const [name, manifest] of Object.entries(themes)) {
