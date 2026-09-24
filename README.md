@@ -15,9 +15,9 @@ browse layers grouped by service and by the same groups UGRC's own layer ids enc
 "PARKS & REC"), edit colors/opacity/numbers/enums/filters/zoom ranges, reorder layers within a
 service, and download either one combined style JSON or the 3 separate
 `VectorHillshade`/`LiteBase`/`LiteLabels` files matching how UGRC actually hosts these. A
-"Compare" toggle switches to a side-by-side slider — pick any theme, UGRC's own live basemap, your
-upload, or your in-progress edit independently for each side. Nothing you do here feeds back into
-this repo's build — see [`STYLE_EDITOR_PLAN.md`](STYLE_EDITOR_PLAN.md) for the design.
+A "Compare against" picker in the header swipes your in-progress edit against any theme, UGRC's own
+live basemap, or your upload. Nothing you do here feeds back into this repo's build — see
+[`STYLE_EDITOR_PLAN.md`](STYLE_EDITOR_PLAN.md) for the design.
 
 ## What this is
 

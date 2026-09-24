@@ -59,6 +59,15 @@ export class Dropdown extends EventTarget {
       dot.setAttribute("aria-hidden", "true");
       li.appendChild(dot);
 
+      // Optional per-option icon (a trusted, caller-supplied inline <svg>...</svg> string, e.g.
+      // index.html's THEME_ICONS) - callers that never pass one (most) render no icon at all.
+      if (opt.icon) {
+        const icon = document.createElement("span");
+        icon.className = "dd-option-icon";
+        icon.innerHTML = opt.icon;
+        li.appendChild(icon);
+      }
+
       const text = document.createElement("span");
       text.className = "dd-option-text";
       const labelEl = document.createElement("span");
@@ -97,6 +106,19 @@ export class Dropdown extends EventTarget {
    * listener, which a plain `.value =` revert would do and could loop. */
   setValueSilently(key) {
     this._setSelected(key);
+  }
+
+  /** Resets the trigger back to a placeholder with nothing marked selected - for a menu-style
+   * dropdown (e.g. a "Download" action menu) where picking an item fires an action rather than
+   * persisting as "the current value," so the trigger shouldn't keep showing the last item picked
+   * the way a real picker's would. */
+  clearSelection(placeholderLabel) {
+    this._value = null;
+    this.label.textContent = placeholderLabel;
+    for (const li of this.menu.children) {
+      li.classList.remove("is-selected");
+      li.setAttribute("aria-selected", "false");
+    }
   }
 
   /** Returns true if `key` was valid and actually changed the selection. */

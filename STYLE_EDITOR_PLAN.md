@@ -2,11 +2,11 @@
 
 Status: implemented. Everything below was built as `docs/editor.html`, a second page alongside the
 original `docs/index.html` compare demo — but the two were then merged into one page: `editor.html`
-became the new `docs/index.html` (superseding the old compare-only one), with its own "Compare"
-toggle covering what the old page did. There is now exactly one page, defaulting to the editor
-view. The design below (layer grouping, property specs, the 3-file export, compare mode's option
-list, draft autosave) is otherwise still accurate to what's live — only the "second page" framing
-is out of date.
+became the new `docs/index.html` (superseding the old compare-only one). There is now exactly one
+page, defaulting to the editor view. The design below (layer grouping, property specs, the 3-file
+export, draft autosave) is otherwise still accurate to what's live — §5 and §9 have been updated in
+place to describe compare mode's current design (folded into the single editing map via one header
+picker, not a separate view with its own two map instances) rather than the one first built.
 
 Scope is entirely `docs/` (the static demo site published to GitHub Pages) — nothing here touches
 `src/`, `config/`, or the Python build pipeline. Themes keep being generated exactly as they are
@@ -25,9 +25,9 @@ to UGRC's styles:
   widths, text), edit simple filters and zoom ranges, with a raw-JSON fallback for anything the
   visual editor doesn't cover.
 - Download the edited style as a standalone style JSON.
-- Compare: reuse the existing side-by-side slider so either side can be a built-in template, an
-  uploaded style, or the style currently being edited — not just two fixed templates like today's
-  `index.html`.
+- Compare: a swipe slider against any built-in template or an uploaded style, picked from a single
+  header control — not just two fixed templates like today's `index.html`. The style being edited
+  is always the slider's other side, not something you pick separately.
 
 ## 2. Prior art — what's borrowed, what isn't
 
@@ -130,9 +130,11 @@ into a loadable style.
 └───────────────┴───────────────────────────────────────────────┘
 ```
 
-Compare mode is a header toggle, not a separate page: off = single full-bleed map you're editing;
-on = the existing `maplibre-gl-compare` slider, left/right pickers reused from `index.html`'s
-pattern (§7) but with two extra entries prepended: **"Your upload"** and **"Current edit."**
+Compare mode is a single header picker ("Compare against"), not a separate view or a left/right
+pair: the one map you're editing is always the swipe's left/before side, so it never needs its own
+entry in the picker. "None" (default) shows just that one full-bleed map; picking a built-in
+template or "Your upload" lazily mounts a second, read-only map as its right/after side and binds
+the two with `maplibre-gl-compare`'s slider — see §9.
 
 ## 6. Layer list: one service open at a time
 
@@ -214,19 +216,26 @@ live style against the originally-loaded one.
   3-file option just fires it three times in a row rather than needing a zip dependency (worth
   revisiting only if three separate browser download prompts prove annoying in testing).
 
-## 9. Compare mode integration (per your answer in §2 of the review)
+## 9. Compare mode integration
 
-Extend the existing picker-option model (`loadOptions()` in `docs/assets/styles.js` after the
-refactor) so both the editor's own "start from" picker and the compare sliders' left/right pickers
-draw from one superset list:
+One "Compare against" picker in the header (reusing `docs/assets/dropdown.js` unchanged), separate
+from the "start from" picker, listing:
 
-- every entry from `docs/themes.json`, plus `original` ("Lite") — exactly as today
-- `upload` — present only once a file has actually been loaded this session
-- `current-edit` — present once the user has changed anything from the loaded template; always
-  reflects the live in-progress style object, not a snapshot, so toggling into compare mode while
-  mid-edit shows the edit as it stands
+- `none` — the default; single map, no comparison
+- every entry from `docs/themes.json`, plus `original` ("Lite") — exactly what the "start from"
+  picker offers, reusing the same `loadOptions()` list
+- `uploaded` — present only once a file has actually been uploaded this session
 
-Left/right `Dropdown`s reuse `docs/assets/dropdown.js` unchanged.
+There's no "current edit" entry: the map you're editing is always the swipe's left/before side, so
+it's never itself something you pick as a reference. Picking anything but `none` lazily creates
+(once; restyled thereafter) a second, read-only MapLibre map as the right/after side and binds the
+two with `new maplibregl.Compare(map, referenceMap, "#map-wrap", {})`; the shared
+`NavigationControl` relocates between the live map's own corner and a non-clipped sibling element
+while comparing, since the slider clips whichever container it's mounted inside (same technique the
+original single-pair implementation used, just scoped to one map area instead of a separate view).
+Picking `none` again calls the swipe binding's own `.remove()` and hides the reference map's
+container; the reference `maplibregl.Map` instance itself is kept around (not destroyed) so
+re-picking a template already seen this session just calls `setStyle()` instead of recreating it.
 
 ## 10. Persistence
 
