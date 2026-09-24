@@ -8280,7 +8280,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "rgba(68,52,60,0.5)",
+        "line-color": "#a5748c",
         "line-width": 1
       }
     },

@@ -27,6 +27,7 @@
   "boundary_muni": "#4a505c",
   "boundary_faint": "#3a3f4a",
   "boundary_halo": "#30343c",
+  "airport_boundary": "#a5748c",
 
   "contour": "#6b5a4e",
   "contour_index": "#7a675a",

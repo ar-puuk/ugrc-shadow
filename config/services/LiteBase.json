@@ -11,6 +11,7 @@
     { "note": "nat/state park bands", "match": { "source_layer": "^UtahParksAndMonuments$", "type": "line" }, "paint": { "line-color": "@park_band" } },
     { "note": "nat/state park edge",  "match": { "source_layer": "^UtahParksAndMonuments$", "type": "line", "id": "/1$" }, "paint": { "line-color": "@park_outline" } },
     { "note": "ski areas",            "match": { "source_layer": "^SkiAreaBoundaries$" }, "paint": { "fill-outline-color": "@boundary_faint" } },
+    { "note": "airport boundary",     "match": { "source_layer": "^Airports$", "type": "line" }, "paint": { "line-color": { "color": "@airport_boundary", "alpha": 1 } } },
 
     { "note": "contours",             "match": { "source_layer": "^Contours" }, "paint": { "line-color": "@contour", "line-opacity": 0.3 } },
     { "note": "index contours",       "match": { "source_layer": "^Contours", "id": "/(500|1000)(_\\d+)?$" }, "paint": { "line-color": "@contour_index" } },
