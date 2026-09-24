@@ -176,6 +176,14 @@ class Shadower:
                     if orig is None and isinstance(spec, dict) and "tint" in spec:
                         continue
                     paint[prop] = self.color_value(spec, orig, ka)
+                elif isinstance(spec, dict) and "scale" in spec:
+                    # relative adjustment (e.g. a road class kept the same color as a bolder
+                    # class but drawn a bit narrower) - multiplies whatever width Esri already
+                    # baked in for this specific zoom-tier layer, rather than replacing it with
+                    # one flat number that would break the per-tier width curve.
+                    if not isinstance(orig, (int, float)):
+                        continue
+                    paint[prop] = orig * float(spec["scale"])
                 else:
                     paint[prop] = self.ref(spec)
 

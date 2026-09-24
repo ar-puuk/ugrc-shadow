@@ -1,3 +1,5 @@
+import pytest
+
 from ugrc_styles.engine import Shadower, remap_icon_images
 
 
@@ -95,6 +97,30 @@ def test_remap_icon_images_renames_matching_only():
     by_id = {ly["id"]: ly for ly in style["layers"]}
     assert by_id["a"]["layout"]["icon-image"] == "Overlay/Foo"
     assert by_id["b"]["layout"]["icon-image"] == "Base/Bar"  # unmapped name left as-is
+
+
+def test_shadow_scale_multiplies_existing_numeric_value():
+    style = _style()
+    next(ly for ly in style["layers"] if ly["id"] == "roads")["paint"]["line-width"] = 2.0
+    service = {
+        "rules": [{"note": "narrower", "match": {"id": "^roads$"}, "paint": {"line-width": {"scale": 0.85}}}],
+        "background": None,
+    }
+    shadowed, _ = _shadower().shadow(style, service, "https://example.com/services/Foo/resources/styles/root.json")
+    roads = next(ly for ly in shadowed["layers"] if ly["id"] == "roads")
+    assert roads["paint"]["line-width"] == pytest.approx(1.7)
+
+
+def test_shadow_scale_skips_layer_missing_the_property():
+    # "roads" (type line) has no line-width preset in the fixture - scale must leave it absent
+    # rather than raising or inventing a value.
+    service = {
+        "rules": [{"note": "narrower", "match": {"id": "^roads$"}, "paint": {"line-width": {"scale": 0.85}}}],
+        "background": None,
+    }
+    shadowed, _ = _shadower().shadow(_style(), service, "https://example.com/services/Foo/resources/styles/root.json")
+    roads = next(ly for ly in shadowed["layers"] if ly["id"] == "roads")
+    assert "line-width" not in roads["paint"]
 
 
 def test_shadow_skip_rule_leaves_layer_untouched():
