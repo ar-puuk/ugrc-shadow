@@ -143,11 +143,26 @@ function absolutize(style, styleUrl) {
   }
 }
 
-/** A committed theme style's sprite/glyphs are already absolute (the Python build always
- * absolutizes those regardless of source_mode), but their vector sources are deliberately left
- * in Esri's `url` shape rather than MapLibre's `tiles` array (see vectorUrlSourceToTiles above)
- * - so this demo has to do that one conversion itself before MapLibre can render them. */
-function resolveThemeSources(style) {
+/** A committed theme style's glyphs are already absolute (the Python build always absolutizes
+ * that regardless of source_mode), but two things need resolving here before MapLibre can
+ * render it:
+ *
+ * - `sprite` is deliberately left relative (e.g. "../sprites/base-icons-shadow"), written
+ *   relative to the style JSON's OWN file location (docs/<theme>/styles/X.json - so "../sprites/"
+ *   lands back in docs/<theme>/sprites/). That assumption only holds if something resolves it
+ *   against the fetched file's URL. This demo fetches the JSON as plain data and hands MapLibre
+ *   the resulting object (not a URL string), so MapLibre has no idea where it came from and
+ *   would instead resolve a relative sprite URL against the *page's* location - one level too
+ *   high, breaking every icon. So it's resolved by hand here, against `styleUrl` (the style
+ *   JSON's own absolute URL). Already-absolute sprite URLs (a build run with --base-url) pass
+ *   through unchanged, since `new URL(absolute, base)` ignores `base`.
+ * - vector sources are deliberately left in Esri's `url` shape rather than MapLibre's `tiles`
+ *   array (see vectorUrlSourceToTiles above) - so this demo has to do that one conversion itself.
+ */
+function resolveThemeStyle(style, styleUrl) {
+  if (typeof style.sprite === "string") {
+    style.sprite = joinUrl(styleUrl, style.sprite);
+  }
   for (const src of Object.values(style.sources || {})) {
     if (typeof src.url === "string") {
       const absUrl = src.url.endsWith("/") ? src.url : src.url + "/";
@@ -218,8 +233,9 @@ async function buildOriginalStyle() {
 async function buildThemeStyle(themeManifest) {
   const styles = {};
   for (const [name, relPath] of Object.entries(themeManifest.styles)) {
+    const styleUrl = new URL(relPath, document.baseURI).href;
     const style = await fetchJson(relPath);
-    resolveThemeSources(style);
+    resolveThemeStyle(style, styleUrl);
     styles[name] = style;
   }
   return mergeStyles(styles, { glyphsFrom: "LiteLabels" });
