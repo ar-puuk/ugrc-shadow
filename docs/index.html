@@ -81,35 +81,58 @@
   }
   .picker { display: flex; align-items: center; gap: 6px; padding-left: 6px; }
   .picker-icon { width: 15px; height: 15px; flex: none; color: var(--text-dim); }
-  .picker select {
-    font: inherit; font-size: 13px; font-weight: 500; color: var(--text); color-scheme: dark;
-    appearance: none; -webkit-appearance: none;
-    max-width: 11em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    padding: 6px 24px 6px 8px;
-    border: 1px solid transparent; background-color: rgba(255, 255, 255, .05);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9adb6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 6px center;
-    border-radius: 7px;
+
+  /* A custom combobox (button + absolutely-positioned listbox) instead of a native <select> -
+     the popped-open option list of a real <select> is native OS/browser chrome, and CSS can
+     only reliably touch its background-color/color (barely padding in Chromium); no rounded
+     corners, no shadow, no per-row hover, no per-row description text. Rendering the menu in
+     our own DOM removes that ceiling entirely. */
+  .dd { position: relative; }
+  .dd-button {
+    display: flex; align-items: center; gap: 8px;
+    font: inherit; font-size: 13px; font-weight: 500; color: var(--text);
+    max-width: 12em;
+    padding: 6px 8px 6px 10px;
+    border: 1px solid transparent; border-radius: 7px;
+    background-color: rgba(255, 255, 255, .05);
     cursor: pointer;
     transition: background-color .15s ease, border-color .15s ease;
   }
-  .picker select:hover { background-color: rgba(255, 255, 255, .1); }
-  .picker select:focus-visible {
+  .dd-button-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dd-chevron { width: 10px; height: 6px; flex: none; margin-left: auto; color: var(--text-dim); transition: transform .15s ease; }
+  .dd-button:hover { background-color: rgba(255, 255, 255, .1); }
+  .dd-button:focus-visible {
     outline: none; border-color: var(--accent-2);
     background-color: rgba(255, 255, 255, .1);
     box-shadow: 0 0 0 3px rgba(110, 168, 254, .2);
   }
-  /* The popped-open option list is native OS chrome, not something our translucent glass
-     background can paint - `color-scheme: dark` above isn't consistently honored for it across
-     browsers, so without this the list renders on the OS's default light listbox background
-     while keeping our light select text, making every unhovered option unreadable. A solid
-     (non-transparent) background here is required - browsers can't blend the popup against
-     whatever's behind it the way they can for the closed select box. */
-  .picker select option {
-    background: #16171c;
-    color: var(--text);
+  .dd-button[aria-expanded="true"] .dd-chevron { transform: rotate(180deg); }
+
+  .dd-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 10;
+    margin: 0; padding: 5px; list-style: none;
+    min-width: 100%; width: max-content; max-width: 280px; max-height: 60vh; overflow-y: auto;
+    background: #17181d; border: 1px solid rgba(255, 255, 255, .1); border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
   }
+  .dd-menu:focus { outline: none; }
+  .dd-option {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 7px 9px; border-radius: 6px; cursor: pointer;
+  }
+  .dd-option-dot {
+    width: 6px; height: 6px; margin-top: 5px; flex: none; border-radius: 50%;
+    background: var(--accent-2); opacity: 0; transition: opacity .1s ease;
+  }
+  .dd-option.is-selected .dd-option-dot { opacity: 1; }
+  .dd-option-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .dd-option-label { font-size: 13px; font-weight: 500; color: var(--text); }
+  .dd-option.is-selected .dd-option-label { color: var(--accent-2); }
+  .dd-option-desc {
+    font-size: 11px; font-weight: 400; color: var(--text-dim); line-height: 1.3;
+    overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .dd-option.is-active { background: rgba(255, 255, 255, .08); }
 
   .swap-btn, .icon-btn {
     display: flex; align-items: center; justify-content: center;
@@ -203,7 +226,13 @@
           <rect x="3" y="4" width="18" height="16" rx="3"/>
           <rect x="3" y="4" width="6" height="16" rx="1" fill="currentColor" fill-opacity=".4" stroke="none"/>
         </svg>
-        <select id="left-pick" aria-label="Left side"></select>
+        <div class="dd" id="left-dd">
+          <button type="button" class="dd-button" aria-haspopup="listbox" aria-expanded="false" aria-label="Left side">
+            <span class="dd-button-label"></span>
+            <svg class="dd-chevron" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
+          </button>
+          <ul class="dd-menu" role="listbox" tabindex="-1" hidden></ul>
+        </div>
       </div>
       <button id="swap-btn" class="swap-btn" type="button" title="Swap sides" aria-label="Swap left and right">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -216,7 +245,13 @@
           <rect x="3" y="4" width="18" height="16" rx="3"/>
           <rect x="15" y="4" width="6" height="16" rx="1" fill="currentColor" fill-opacity=".4" stroke="none"/>
         </svg>
-        <select id="right-pick" aria-label="Right side"></select>
+        <div class="dd" id="right-dd">
+          <button type="button" class="dd-button" aria-haspopup="listbox" aria-expanded="false" aria-label="Right side">
+            <span class="dd-button-label"></span>
+            <svg class="dd-chevron" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
+          </button>
+          <ul class="dd-menu" role="listbox" tabindex="-1" hidden></ul>
+        </div>
       </div>
     </div>
     <div class="divider" aria-hidden="true"></div>
@@ -411,9 +446,9 @@ async function buildThemeStyle(themeManifest) {
 
 /** Every option a picker can offer: "original" (UGRC's live basemap) plus one entry per theme
  * from docs/themes.json - built once at load so left/right pickers, defaults, and the actual
- * style builders all agree on the same list. Each option's `description` surfaces as a native
- * tooltip (see populatePicker/updateSelectTitle) - a bit of free, unobtrusive context on what
- * each theme actually is, straight from the same text the README and build already carry. */
+ * style builders all agree on the same list. Each option's `description` is rendered directly
+ * in the Dropdown's menu (see below) - a bit of free, unobtrusive context on what each theme
+ * actually is, straight from the same text the README and build already carry. */
 async function loadOptions() {
   const themes = await fetchJson("themes.json");
   const options = {
@@ -428,35 +463,160 @@ async function loadOptions() {
   return options;
 }
 
-function populatePicker(select, options, selected) {
-  select.innerHTML = "";
-  for (const [key, opt] of Object.entries(options)) {
-    const el = document.createElement("option");
-    el.value = key;
-    el.textContent = opt.label;
-    if (opt.description) el.title = opt.description; // shows on hover while the list is open
-    select.appendChild(el);
+/** All currently-open dropdowns close when any other one opens or the page is clicked outside
+ * of them - tracked here rather than per-instance so opening #2 doesn't need to know #1 exists. */
+const openDropdowns = new Set();
+document.addEventListener("click", (e) => {
+  for (const dd of [...openDropdowns]) {
+    if (!dd.container.contains(e.target)) dd.close();
   }
-  select.value = selected;
-  updateSelectTitle(select, options);
-}
+});
 
-/** Keeps the closed <select>'s own tooltip in sync with whichever option is currently chosen -
- * option-level titles (above) only show while the dropdown is actually open. */
-function updateSelectTitle(select, options) {
-  const opt = options[select.value];
-  select.title = (opt && opt.description) || (opt && opt.label) || "";
+/** A combobox built from a <button> + absolutely-positioned <ul role="listbox"> (see the .dd*
+ * CSS) instead of a native <select> - the popped-open list of a real <select> is native OS/
+ * browser chrome that CSS can barely touch (background-color/color, a little padding in
+ * Chromium - no rounded corners, no shadow, no per-row hover, no per-row description text).
+ * Rendering the menu in our own DOM removes that ceiling. Exposes just enough of a <select>'s
+ * shape (a `.value` getter/setter, a "change" event) that the rest of this file barely needs to
+ * know it isn't one. */
+class Dropdown extends EventTarget {
+  constructor(container) {
+    super();
+    this.container = container;
+    this.button = container.querySelector(".dd-button");
+    this.label = container.querySelector(".dd-button-label");
+    this.menu = container.querySelector(".dd-menu");
+    this.options = {};
+    this._value = null;
+    this._activeKey = null;
+
+    this.button.addEventListener("click", () => (this.open ? this.close() : this._openMenu()));
+    this.button.addEventListener("keydown", (e) => {
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
+        e.preventDefault();
+        this._openMenu();
+      }
+    });
+    this.menu.addEventListener("keydown", (e) => this._onMenuKeydown(e));
+  }
+
+  get open() {
+    return openDropdowns.has(this);
+  }
+
+  setOptions(options) {
+    this.options = options;
+    this.menu.innerHTML = "";
+    for (const [key, opt] of Object.entries(options)) {
+      const li = document.createElement("li");
+      li.className = "dd-option";
+      li.id = `${this.container.id}-opt-${key}`;
+      li.role = "option";
+      li.dataset.value = key;
+
+      const dot = document.createElement("span");
+      dot.className = "dd-option-dot";
+      dot.setAttribute("aria-hidden", "true");
+      li.appendChild(dot);
+
+      const text = document.createElement("span");
+      text.className = "dd-option-text";
+      const labelEl = document.createElement("span");
+      labelEl.className = "dd-option-label";
+      labelEl.textContent = opt.label;
+      text.appendChild(labelEl);
+      if (opt.description) {
+        const descEl = document.createElement("span");
+        descEl.className = "dd-option-desc";
+        descEl.textContent = opt.description;
+        text.appendChild(descEl);
+      }
+      li.appendChild(text);
+
+      li.addEventListener("click", () => {
+        this.value = key;
+        this.close();
+        this.button.focus();
+      });
+      li.addEventListener("mousemove", () => this._setActive(key));
+      this.menu.appendChild(li);
+    }
+  }
+
+  get value() {
+    return this._value;
+  }
+
+  set value(key) {
+    if (!(key in this.options)) return;
+    const changed = this._value !== key;
+    this._value = key;
+    this.label.textContent = this.options[key].label;
+    for (const li of this.menu.children) {
+      li.classList.toggle("is-selected", li.dataset.value === key);
+      li.setAttribute("aria-selected", String(li.dataset.value === key));
+    }
+    if (changed) this.dispatchEvent(new Event("change"));
+  }
+
+  _setActive(key) {
+    this._activeKey = key;
+    for (const li of this.menu.children) {
+      li.classList.toggle("is-active", li.dataset.value === key);
+    }
+    this.button.setAttribute("aria-activedescendant", `${this.container.id}-opt-${key}`);
+  }
+
+  _openMenu() {
+    for (const dd of [...openDropdowns]) if (dd !== this) dd.close();
+    openDropdowns.add(this);
+    this.menu.hidden = false;
+    this.button.setAttribute("aria-expanded", "true");
+    this._setActive(this._value);
+    this.menu.focus();
+  }
+
+  close() {
+    openDropdowns.delete(this);
+    this.menu.hidden = true;
+    this.button.setAttribute("aria-expanded", "false");
+  }
+
+  _onMenuKeydown(e) {
+    const keys = Object.keys(this.options);
+    let idx = Math.max(keys.indexOf(this._activeKey), 0);
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      this._setActive(keys[Math.min(idx + 1, keys.length - 1)]);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      this._setActive(keys[Math.max(idx - 1, 0)]);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      this.value = this._activeKey;
+      this.close();
+      this.button.focus();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      this.close();
+      this.button.focus();
+    } else if (e.key === "Tab") {
+      this.close();
+    }
+  }
 }
 
 async function main() {
   const statusEl = document.getElementById("status");
   const statusText = document.getElementById("status-text");
-  const leftPick = document.getElementById("left-pick");
-  const rightPick = document.getElementById("right-pick");
+  const leftPick = new Dropdown(document.getElementById("left-dd"));
+  const rightPick = new Dropdown(document.getElementById("right-dd"));
   try {
     const options = await loadOptions();
-    populatePicker(leftPick, options, DEFAULT_LEFT in options ? DEFAULT_LEFT : Object.keys(options)[0]);
-    populatePicker(rightPick, options, DEFAULT_RIGHT in options ? DEFAULT_RIGHT : Object.keys(options)[0]);
+    leftPick.setOptions(options);
+    leftPick.value = DEFAULT_LEFT in options ? DEFAULT_LEFT : Object.keys(options)[0];
+    rightPick.setOptions(options);
+    rightPick.value = DEFAULT_RIGHT in options ? DEFAULT_RIGHT : Object.keys(options)[0];
 
     // Cache built styles per option key so flipping a picker back and forth doesn't re-fetch.
     const styleCache = new Map();
@@ -524,24 +684,16 @@ async function main() {
         statusEl.hidden = true;
       }
     }
-    leftPick.addEventListener("change", () => {
-      updateSelectTitle(leftPick, options);
-      swap(before, leftPick.value);
-    });
-    rightPick.addEventListener("change", () => {
-      updateSelectTitle(rightPick, options);
-      swap(after, rightPick.value);
-    });
+    leftPick.addEventListener("change", () => swap(before, leftPick.value));
+    rightPick.addEventListener("change", () => swap(after, rightPick.value));
 
     document.getElementById("swap-btn").addEventListener("click", () => {
       const l = leftPick.value, r = rightPick.value;
       if (l === r) return;
+      // Unlike a native <select>, Dropdown's value setter dispatches "change" itself on any
+      // actual change, so the listeners above already do the swap(); assigning here is enough.
       leftPick.value = r;
       rightPick.value = l;
-      updateSelectTitle(leftPick, options);
-      updateSelectTitle(rightPick, options);
-      swap(before, leftPick.value);
-      swap(after, rightPick.value);
     });
   } catch (err) {
     console.error(err);
