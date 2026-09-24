@@ -2534,7 +2534,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 21.3333
       }
     },
@@ -2554,7 +2554,7 @@
         "line-cap": "square"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 2
       }
     },
@@ -2575,7 +2575,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 3
       }
     },
@@ -2596,7 +2596,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 4.33333
       }
     },
@@ -2617,7 +2617,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 4.33333
       }
     },
@@ -2638,7 +2638,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 5.33333
       }
     },
@@ -2659,7 +2659,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 6.66667
       }
     },
@@ -2680,7 +2680,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 8
       }
     },
@@ -2701,7 +2701,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 11.3333
       }
     },
@@ -2722,7 +2722,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 15.3333
       }
     },
@@ -2743,7 +2743,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 20
       }
     },
@@ -2763,7 +2763,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 21.3333
       }
     },
@@ -2784,7 +2784,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 2
       }
     },
@@ -2805,7 +2805,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 2.66667
       }
     },
@@ -2826,7 +2826,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 3
       }
     },
@@ -2847,7 +2847,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 4
       }
     },
@@ -2868,7 +2868,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 4.33333
       }
     },
@@ -2889,7 +2889,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 5.33333
       }
     },
@@ -2910,7 +2910,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 6.66667
       }
     },
@@ -2931,7 +2931,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 8
       }
     },
@@ -2952,7 +2952,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 11.3333
       }
     },
@@ -2973,7 +2973,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 15.3333
       }
     },
@@ -2994,7 +2994,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ffeabb",
+        "line-color": "#ffedc0",
         "line-width": 20
       }
     },

@@ -80,10 +80,13 @@ CARTO_KEY_MAP: dict[str, tuple[str, str]] = {
     # (narrower, paler - drawn on top) pair; UGRC's own /1 (wider) + /0 (narrower) sub-layers
     # line up with that role for role, so road_* holds the fill tone (the /0 layer's color) and
     # road_*_casing the case tone (the /1 layer's color) - see sol's LiteBase.json road rules.
+    # Voyager's own primary tone sits so close to its motorway tone (barely more than a shade
+    # paler) that the two read as the same band at typical zoom - so sol groups US/State
+    # Highways with the secondary tier (road_medium) instead of primary, leaving road_highway
+    # (motorway) as the one clearly distinct, boldest class. Voyager's primary tone itself is
+    # unused here as a result.
     "road_highway": ("road_mot_fill_noramp", "line-color"),
     "road_highway_casing": ("road_mot_case_noramp", "line-color"),
-    "road_major": ("road_pri_fill_noramp", "line-color"),
-    "road_major_casing": ("road_pri_case_noramp", "line-color"),
     "road_medium": ("road_sec_fill_noramp", "line-color"),
     "road_medium_casing": ("road_sec_case_noramp", "line-color"),
     "road_minor": ("road_minor_fill", "line-color"),
