@@ -5446,7 +5446,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.66667
       }
     },
@@ -5524,7 +5524,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 2.33333
       }
     },
@@ -5566,7 +5566,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.33333
       }
     },
@@ -5608,7 +5608,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.66667
       }
     },
@@ -5720,7 +5720,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 2.33333,
         "line-offset": 2.33333
       }
@@ -5764,7 +5764,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.83333,
         "line-offset": 2
       }
@@ -5808,7 +5808,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 2,
         "line-offset": 2
       }
@@ -5923,7 +5923,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 2.33333
       }
     },
@@ -5965,7 +5965,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.33333
       }
     },
@@ -6007,7 +6007,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.83333
       }
     },
@@ -6119,7 +6119,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 2.33333,
         "line-offset": 2.33333
       }
@@ -6163,7 +6163,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.33333,
         "line-offset": 1.66667
       }
@@ -6207,7 +6207,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.83333,
         "line-offset": 2
       }
@@ -6322,7 +6322,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 2.33333
       }
     },
@@ -6364,7 +6364,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.33333
       }
     },
@@ -6406,7 +6406,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.83333
       }
     },
@@ -6518,7 +6518,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 2.33333,
         "line-offset": 4.66667
       }
@@ -6562,7 +6562,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.33333,
         "line-offset": 2.66667
       }
@@ -6606,7 +6606,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.83333,
         "line-offset": 4
       }
@@ -6722,7 +6722,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 2.33333,
         "line-offset": -4.66667
       }
@@ -6766,7 +6766,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.33333,
         "line-offset": -2.66667
       }
@@ -6810,7 +6810,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.83333,
         "line-offset": -4
       }
@@ -6925,7 +6925,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 2.33333
       }
     },
@@ -6967,7 +6967,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.33333
       }
     },
@@ -7009,7 +7009,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.83333
       }
     },
@@ -7050,7 +7050,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 2.33333,
         "line-offset": -2.33333
       }
@@ -7094,7 +7094,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.33333,
         "line-offset": -1.66667
       }
@@ -7138,7 +7138,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.83333,
         "line-offset": -2
       }
@@ -7253,7 +7253,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 2.33333
       }
     },
@@ -7295,7 +7295,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.33333
       }
     },
@@ -7337,7 +7337,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#595959",
+        "line-color": "#737373",
         "line-width": 1.83333
       }
     },

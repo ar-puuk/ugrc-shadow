@@ -26,15 +26,26 @@ SPRITES_TO_DARKEN = {
     "LiteLabels": "shields-dark",
 }
 
+# icons that must match a specific palette color exactly rather than being generically inverted:
+# UGRC bakes the "Base/Railroads/0" tie-mark icon and the "Railroads" line layer beside it as the
+# identical gray, and the line reaches @rail through the normal rule engine - the icon needs to
+# land on that same value too, or the two visibly mismatch (icon-color is a no-op on a non-SDF
+# icon, so it can't just be told "@rail" the way the line is).
+SPRITE_RECOLOR = {
+    "LiteBase": {"Base/Railroads/0": "rail"},  # icon name -> palette key
+}
+
 
 def write_json(path: Path, data: dict) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def darken_and_write_sprite(style: dict, sprite_name: str, sprites_dir: Path, base_url: str | None) -> None:
+def darken_and_write_sprite(
+    style: dict, sprite_name: str, sprites_dir: Path, base_url: str | None, recolor: dict[str, str] | None = None
+) -> None:
     """Darken `style`'s own sprite and repoint `style["sprite"]` at the local darkened copy."""
     esri_sprite_base = style["sprite"]  # already absolutized to Esri's sprite URL
-    sprite = darken_sprite(esri_sprite_base)
+    sprite = darken_sprite(esri_sprite_base, recolor)
 
     write_json(sprites_dir / f"{sprite_name}.json", sprite["json"])
     (sprites_dir / f"{sprite_name}.png").write_bytes(sprite["png"])
@@ -71,7 +82,8 @@ def build(out_dir: Path, base_url: str | None = None) -> None:
 
     for name, sprite_name in SPRITES_TO_DARKEN.items():
         print(f"darkening {name}'s icon sprite ...")
-        darken_and_write_sprite(dark_styles[name], sprite_name, sprites_dir, base_url)
+        recolor = {icon: cfg.palette[key] for icon, key in SPRITE_RECOLOR.get(name, {}).items()}
+        darken_and_write_sprite(dark_styles[name], sprite_name, sprites_dir, base_url, recolor)
 
     for name, svc in cfg.services.items():
         out_path = styles_dir / svc["output"]
