@@ -44,6 +44,15 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
     --radius: 0.5rem;
+    /* Shared checkerboard pattern for anything that might show a transparent color (the color-
+       picker's swatch trigger, preview chip, and alpha slider track) - defined once here rather
+       than repeated per usage; resolves against whichever theme's --muted-foreground is active,
+       so it doesn't need its own light/dark redeclaration. */
+    --checker-bg:
+      linear-gradient(45deg, hsl(var(--muted-foreground) / .35) 25%, transparent 25%),
+      linear-gradient(-45deg, hsl(var(--muted-foreground) / .35) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, hsl(var(--muted-foreground) / .35) 75%),
+      linear-gradient(-45deg, transparent 75%, hsl(var(--muted-foreground) / .35) 75%);
   }
   /* Dark mode: follows the OS/browser by default (prefers-color-scheme); an explicit
      data-theme="light"/"dark" from the toggle button below wins over that in either direction.
@@ -261,17 +270,92 @@
   .prop-row { margin-bottom: 14px; }
   .prop-row label { display: block; font-size: 11.5px; color: hsl(var(--muted-foreground)); margin-bottom: 5px; }
   .color-row { display: flex; align-items: center; gap: 8px; }
-  .color-row input[type=color] {
-    width: 30px; height: 30px; padding: 0; border: 1px solid hsl(var(--input)); border-radius: calc(var(--radius) - 2px);
-    background: none; cursor: pointer;
-  }
   .color-row input[type=text] {
     flex: 1 1 auto; min-width: 0; padding: 6px 8px; border-radius: calc(var(--radius) - 2px); border: 1px solid hsl(var(--input));
     background: hsl(var(--background)); color: hsl(var(--foreground)); font-size: 12.5px; font-family: monospace;
   }
-  .alpha-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-  .alpha-row input[type=range] { flex: 1 1 auto; }
-  .alpha-row output { flex: none; width: 3em; text-align: right; font-size: 11.5px; color: hsl(var(--muted-foreground)); font-family: monospace; }
+
+  .color-swatch-btn {
+    position: relative; flex: none; width: 30px; height: 30px; padding: 0;
+    border: 1px solid hsl(var(--input)); border-radius: calc(var(--radius) - 2px);
+    overflow: hidden; cursor: pointer;
+  }
+  .color-swatch-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
+  .color-swatch-fill { position: absolute; inset: 0; }
+  .color-swatch-btn::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: var(--checker-bg); background-size: 8px 8px; background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+  }
+
+  /* The color picker popover itself - a floating shadcn-style card, positioned in JS
+     (ColorPickerPopover._position()) since it's a single shared instance reused by every color
+     row rather than one popover per row. */
+  .cp-popover {
+    position: fixed; z-index: 50; width: 216px;
+    padding: 12px; border-radius: var(--radius);
+    background: hsl(var(--popover)); border: 1px solid hsl(var(--border));
+    box-shadow: 0 4px 6px hsl(var(--foreground) / 0.05), 0 10px 24px hsl(var(--foreground) / 0.12);
+  }
+  .cp-square {
+    position: relative; height: 140px; border-radius: calc(var(--radius) - 2px);
+    cursor: crosshair; touch-action: none;
+  }
+  .cp-square-thumb {
+    position: absolute; width: 14px; height: 14px; margin: -7px;
+    border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .5);
+    pointer-events: none;
+  }
+  .cp-sliders { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+  .cp-hue, .cp-alpha { width: 100%; }
+  /* input[type="range"].cp-hue rather than plain .cp-hue: the generic input[type="range"] reset
+     rules further down (higher specificity - element + attribute selector) would otherwise beat a
+     bare class selector's background-image regardless of which comes later in the file. */
+  input[type="range"].cp-hue,
+  input[type="range"].cp-hue::-webkit-slider-runnable-track,
+  input[type="range"].cp-hue::-moz-range-track {
+    background-image: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  }
+  input[type="range"].cp-alpha,
+  input[type="range"].cp-alpha::-webkit-slider-runnable-track,
+  input[type="range"].cp-alpha::-moz-range-track {
+    background-image: var(--cp-tint, none), var(--checker-bg);
+    background-size: auto, 8px 8px, 8px 8px, 8px 8px, 8px 8px;
+    background-position: 0 0, 0 0, 0 4px, 4px -4px, -4px 0;
+  }
+  .cp-fields { margin-top: 10px; display: flex; align-items: center; gap: 6px; }
+  .cp-preview {
+    flex: none; width: 24px; height: 24px; border-radius: calc(var(--radius) - 3px);
+    border: 1px solid hsl(var(--input));
+    background-image: linear-gradient(var(--cp-preview-color, transparent), var(--cp-preview-color, transparent)), var(--checker-bg);
+    background-size: auto, 8px 8px, 8px 8px, 8px 8px, 8px 8px;
+    background-position: 0 0, 0 0, 0 4px, 4px -4px, -4px 0;
+  }
+  .cp-hex-input {
+    flex: 1 1 auto; min-width: 0; padding: 5px 7px; border-radius: calc(var(--radius) - 3px);
+    border: 1px solid hsl(var(--input)); background: hsl(var(--background)); color: hsl(var(--foreground));
+    font-size: 12px; font-family: monospace;
+  }
+  .cp-alpha-field {
+    flex: none; display: flex; align-items: center; gap: 2px;
+    padding: 5px 7px; border-radius: calc(var(--radius) - 3px);
+    border: 1px solid hsl(var(--input)); background: hsl(var(--background));
+    font-size: 12px; color: hsl(var(--muted-foreground));
+  }
+  .cp-alpha-field input {
+    width: 2.2em; border: none; background: none; padding: 0; text-align: right;
+    color: hsl(var(--foreground)); font-size: 12px; font-family: monospace;
+  }
+  .cp-alpha-field input:focus-visible { outline: none; }
+  .cp-eyedropper-btn {
+    flex: none; display: flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: calc(var(--radius) - 3px);
+    border: 1px solid hsl(var(--input)); background: hsl(var(--background)); color: hsl(var(--muted-foreground));
+    cursor: pointer;
+  }
+  .cp-eyedropper-btn:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+  .cp-eyedropper-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
+  .cp-eyedropper-btn svg { width: 14px; height: 14px; }
+
   .number-row { display: flex; align-items: center; gap: 8px; }
   .number-row input[type=range] { flex: 1 1 auto; }
   .number-row output { flex: none; width: 3em; text-align: right; font-size: 11.5px; color: hsl(var(--muted-foreground)); font-family: monospace; }
@@ -551,6 +635,9 @@
 
 import { ORIGINAL_KEY, buildOriginalStyle, buildThemeStyle, loadOptions, splitMergedStyle, prepareForRender } from "./assets/styles.js";
 import { Dropdown } from "./assets/dropdown.js";
+import { ColorPickerPopover } from "./assets/colorpicker.js";
+
+const colorPicker = new ColorPickerPopover();
 
 const CENTER = [-111.891, 40.761]; // Salt Lake City
 const ZOOM = 10;
@@ -1140,6 +1227,12 @@ async function main() {
     return label;
   }
 
+  /** A shadcn/ui-style swatch trigger (see docs/assets/colorpicker.js) instead of the OS-native
+   * <input type=color> dialog this used to open - gives a 2D saturation/value square, a hue
+   * slider, and a checkerboard-based alpha slider (tinted to the current color, not a generic
+   * fade, so it's unambiguous that it controls transparency) directly in our own UI, plus an
+   * eyedropper where the browser supports it. The hex/rgba text field alongside it still works
+   * exactly as before for typing an exact value. */
   function renderColorRow(layer, kind, prop) {
     const wrap = document.createElement("div");
     wrap.className = "prop-row";
@@ -1150,43 +1243,43 @@ async function main() {
     const parsed = parseColor(value) || { hex: "#888888", alpha: 1 };
     const colorRow = document.createElement("div");
     colorRow.className = "color-row";
-    const swatch = document.createElement("input");
-    swatch.type = "color";
-    swatch.value = parsed.hex;
+
+    const swatchBtn = document.createElement("button");
+    swatchBtn.type = "button";
+    swatchBtn.className = "color-swatch-btn";
+    swatchBtn.setAttribute("aria-label", `Edit ${prop}`);
+    const swatchFill = document.createElement("span");
+    swatchFill.className = "color-swatch-fill";
+    swatchBtn.appendChild(swatchFill);
+
     const text = document.createElement("input");
     text.type = "text";
     text.value = value != null ? String(value) : "";
-    colorRow.append(swatch, text);
+    colorRow.append(swatchBtn, text);
     wrap.appendChild(colorRow);
 
-    const alphaRow = document.createElement("div");
-    alphaRow.className = "alpha-row";
-    const alphaSlider = document.createElement("input");
-    alphaSlider.type = "range";
-    alphaSlider.min = "0"; alphaSlider.max = "1"; alphaSlider.step = "0.01";
-    alphaSlider.value = String(parsed.alpha);
-    const alphaOut = document.createElement("output");
-    alphaOut.textContent = parsed.alpha.toFixed(2);
-    alphaRow.append(alphaSlider, alphaOut);
-    wrap.appendChild(alphaRow);
+    const updateSwatch = (hex, alpha) => { swatchFill.style.background = formatColor(hex, alpha); };
+    updateSwatch(parsed.hex, parsed.alpha);
 
-    const commit = (hex, alpha) => {
-      const formatted = formatColor(hex, alpha);
+    const commit = (formatted) => {
       text.value = formatted;
+      const reparsed = parseColor(formatted);
+      if (reparsed) updateSwatch(reparsed.hex, reparsed.alpha);
       applyPropertyEdit(layer, kind, prop, formatted);
       refreshRawJson(layer);
     };
-    swatch.addEventListener("input", () => commit(swatch.value, Number(alphaSlider.value)));
-    alphaSlider.addEventListener("input", () => {
-      alphaOut.textContent = Number(alphaSlider.value).toFixed(2);
-      commit(swatch.value, Number(alphaSlider.value));
+
+    swatchBtn.addEventListener("click", () => {
+      // Re-read from the live layer rather than the `parsed` captured at render time: an earlier
+      // edit (from this row or the popover) doesn't force a full property-panel re-render, so a
+      // stale closure here would reopen the popover showing the color from before that edit.
+      const current = parseColor(bucket[prop]) || { hex: "#888888", alpha: 1 };
+      colorPicker.open(swatchBtn, current.hex, current.alpha, commit);
     });
     text.addEventListener("change", () => {
       const reparsed = parseColor(text.value);
       if (!reparsed) { text.value = value != null ? String(value) : ""; return; }
-      swatch.value = reparsed.hex;
-      alphaSlider.value = String(reparsed.alpha);
-      alphaOut.textContent = reparsed.alpha.toFixed(2);
+      updateSwatch(reparsed.hex, reparsed.alpha);
       applyPropertyEdit(layer, kind, prop, text.value);
       refreshRawJson(layer);
     });
