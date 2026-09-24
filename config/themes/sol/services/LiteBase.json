@@ -28,12 +28,10 @@
 
     { "note": "buildings (if present)", "match": { "source_layer": "(?i)build", "type": "fill" }, "paint": { "fill-color": { "color": "@buildings", "alpha": 0.5 }, "fill-outline-color": "@road_casing" } },
     { "note": "railroads",            "match": { "source_layer": "^Railroads$" }, "paint": { "line-color": "@rail", "icon-color": "@rail" } },
-    { "note": "trails: Voyager's road_path is one flat gray dash with no casing/fill split at all - UGRC's /1+/0 pair are given the identical color (both @trail_inner, Voyager's own tone) and phase-aligned dasharray below, so the wider /1 and narrower /0 blend into what reads as a single dashed line at /1's width instead of a two-tone bordered one",
+    { "note": "trails: Voyager's road_path is one flat gray dash with no casing/fill split at all - UGRC's /1+/0 pair are given the identical color (both @trail_inner, Voyager's own tone), so the wider /1 and narrower /0 blend into what reads as a single dashed line at /1's width instead of a two-tone bordered one",
       "match": { "source_layer": "^TrailsAndPathways$" }, "paint": { "line-color": "@trail_inner" } },
-    { "note": "trail dash spacing (zoom 15+ tier): borrowed verbatim from Voyager's road_path upper zoom stop",
-      "match": { "source_layer": "^TrailsAndPathways$", "id": "All Trails/(0|1)$" }, "paint": { "line-dasharray": [3, 3] } },
-    { "note": "trail dash spacing (zoom 14-15 tier): Voyager's lower zoom stop for the same dash",
-      "match": { "source_layer": "^TrailsAndPathways$", "id": "All Trails_1/(0|1)$" }, "paint": { "line-dasharray": [2, 2] } },
+    { "note": "trail dash spacing: UGRC already tunes each layer's own dasharray value against its own width so every width/zoom tier renders the identical ~2.7px dash+gap (0.8*3.333 = 1.6*1.667 = ...) - that per-tier consistency is exactly what keeps /1 and /0 phase-aligned now that they share a color, so scale it up rather than overwrite it with a fresh ratio (which broke that alignment last time - different widths, same ratio, different actual pixel length). x3 brings it from UGRC's tight ~2.7px stipple to a Voyager-like ~8px open dash",
+      "match": { "source_layer": "^TrailsAndPathways$" }, "paint": { "line-dasharray": { "scale": 3 } } },
 
     { "note": "interstates (fill): the one class kept in Voyager's bolder motorway tone - everything else below reads as one paler 'major road' family",
       "match": { "source_layer": "^Roads", "type": "line", "id": "/Interstates" },                                        "paint": { "line-color": "@road_highway" } },

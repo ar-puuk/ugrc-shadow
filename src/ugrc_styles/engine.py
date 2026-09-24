@@ -178,12 +178,20 @@ class Shadower:
                     paint[prop] = self.color_value(spec, orig, ka)
                 elif isinstance(spec, dict) and "scale" in spec:
                     # relative adjustment (e.g. a road class kept the same color as a bolder
-                    # class but drawn a bit narrower) - multiplies whatever width Esri already
+                    # class but drawn a bit narrower) - multiplies whatever value Esri already
                     # baked in for this specific zoom-tier layer, rather than replacing it with
-                    # one flat number that would break the per-tier width curve.
-                    if not isinstance(orig, (int, float)):
+                    # one flat number/array that would break a per-tier curve. Works on a plain
+                    # number (e.g. line-width) or element-wise on a list of numbers (e.g.
+                    # line-dasharray, where Esri already tunes each element per layer so the
+                    # rendered dash length comes out the same across every width/zoom tier -
+                    # scaling preserves that built-in consistency instead of overwriting it).
+                    factor = float(spec["scale"])
+                    if isinstance(orig, (int, float)):
+                        paint[prop] = orig * factor
+                    elif isinstance(orig, list) and all(isinstance(v, (int, float)) for v in orig):
+                        paint[prop] = [v * factor for v in orig]
+                    else:
                         continue
-                    paint[prop] = orig * float(spec["scale"])
                 else:
                     paint[prop] = self.ref(spec)
 

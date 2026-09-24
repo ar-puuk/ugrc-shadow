@@ -111,6 +111,21 @@ def test_shadow_scale_multiplies_existing_numeric_value():
     assert roads["paint"]["line-width"] == pytest.approx(1.7)
 
 
+def test_shadow_scale_multiplies_each_element_of_a_list_value():
+    # e.g. line-dasharray: scaling every element by the same factor preserves whatever ratio
+    # Esri already tuned between dash/gap (and, across differently-sized sibling layers that
+    # share this rule, whatever cross-layer pixel-length consistency Esri already baked in).
+    style = _style()
+    next(ly for ly in style["layers"] if ly["id"] == "roads")["paint"]["line-dasharray"] = [0.8, 1.6]
+    service = {
+        "rules": [{"note": "wider dashes", "match": {"id": "^roads$"}, "paint": {"line-dasharray": {"scale": 3}}}],
+        "background": None,
+    }
+    shadowed, _ = _shadower().shadow(style, service, "https://example.com/services/Foo/resources/styles/root.json")
+    roads = next(ly for ly in shadowed["layers"] if ly["id"] == "roads")
+    assert roads["paint"]["line-dasharray"] == pytest.approx([2.4, 4.8])
+
+
 def test_shadow_scale_skips_layer_missing_the_property():
     # "roads" (type line) has no line-width preset in the fixture - scale must leave it absent
     # rather than raising or inventing a value.

@@ -2250,8 +2250,8 @@
       "paint": {
         "line-color": "#d7d7d7",
         "line-dasharray": [
-          3,
-          3
+          2.4000000000000004,
+          2.4000000000000004
         ],
         "line-width": 3.33333
       }
@@ -2274,8 +2274,8 @@
       "paint": {
         "line-color": "#d7d7d7",
         "line-dasharray": [
-          3,
-          3
+          4.800000000000001,
+          4.800000000000001
         ],
         "line-width": 1.66667
       }
@@ -2299,8 +2299,8 @@
       "paint": {
         "line-color": "#d7d7d7",
         "line-dasharray": [
-          2,
-          2
+          2.6666670000000003,
+          2.6666670000000003
         ],
         "line-width": 3
       }
@@ -2324,8 +2324,8 @@
       "paint": {
         "line-color": "#d7d7d7",
         "line-dasharray": [
-          2,
-          2
+          6.0,
+          6.0
         ],
         "line-width": 1.33333
       }
