@@ -234,23 +234,25 @@
   .search-input::placeholder { color: hsl(var(--muted-foreground)); }
 
   #layer-list { flex: 1; overflow-y: auto; }
-  /* Themed scrollbars for the two scrolling panels - Firefox via scrollbar-width/-color, WebKit/
-     Blink via the ::-webkit-scrollbar-* pseudo-elements (both needed; neither browser honors the
-     other's API). Both key off --border/--muted-foreground, so this follows light/dark/system
-     automatically with no separate light/dark rule of its own. */
-  #layer-list, #prop-body {
+  /* Themed scrollbars for every scrolling panel in the app (the two side panels, plus the raw
+     Layer JSON box below - easy to miss since it's its own separately-scrolling element, not part
+     of #prop-body's own scroll) - Firefox via scrollbar-width/-color, WebKit/Blink via the
+     ::-webkit-scrollbar-* pseudo-elements (both needed; neither browser honors the other's API).
+     Both key off --border/--muted-foreground, so this follows light/dark/system automatically
+     with no separate light/dark rule of its own. */
+  #layer-list, #prop-body, .raw-json pre {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
   }
-  #layer-list::-webkit-scrollbar, #prop-body::-webkit-scrollbar { width: 10px; }
-  #layer-list::-webkit-scrollbar-track, #prop-body::-webkit-scrollbar-track { background: transparent; }
-  #layer-list::-webkit-scrollbar-thumb, #prop-body::-webkit-scrollbar-thumb {
+  #layer-list::-webkit-scrollbar, #prop-body::-webkit-scrollbar, .raw-json pre::-webkit-scrollbar { width: 10px; }
+  #layer-list::-webkit-scrollbar-track, #prop-body::-webkit-scrollbar-track, .raw-json pre::-webkit-scrollbar-track { background: transparent; }
+  #layer-list::-webkit-scrollbar-thumb, #prop-body::-webkit-scrollbar-thumb, .raw-json pre::-webkit-scrollbar-thumb {
     background-color: hsl(var(--border));
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: padding-box;
   }
-  #layer-list::-webkit-scrollbar-thumb:hover, #prop-body::-webkit-scrollbar-thumb:hover {
+  #layer-list::-webkit-scrollbar-thumb:hover, #prop-body::-webkit-scrollbar-thumb:hover, .raw-json pre::-webkit-scrollbar-thumb:hover {
     background-color: hsl(var(--muted-foreground) / 0.6);
   }
   .service-header {
@@ -456,11 +458,22 @@
   .zoom-row .zoom-input { width: 5em; flex: none; }
   .prop-actions { display: flex; gap: 8px; margin: 16px 0; }
   details.raw-json summary { cursor: pointer; font-size: 11.5px; color: hsl(var(--muted-foreground)); margin-bottom: 6px; }
+  .raw-json-body { position: relative; }
   .raw-json pre {
-    margin: 0; padding: 8px; border-radius: calc(var(--radius) - 2px); background: hsl(var(--muted));
+    margin: 0; padding: 8px; padding-right: 34px; border-radius: calc(var(--radius) - 2px); background: hsl(var(--muted));
     color: hsl(var(--foreground));
     font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow-y: auto;
   }
+  .raw-json-copy-btn {
+    position: absolute; top: 6px; right: 6px;
+    display: flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border: 1px solid hsl(var(--border)); border-radius: calc(var(--radius) - 3px);
+    background: hsl(var(--popover) / 0.9); color: hsl(var(--muted-foreground)); cursor: pointer;
+  }
+  .raw-json-copy-btn svg { width: 15px; height: 15px; }
+  .raw-json-copy-btn:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+  .raw-json-copy-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
+  .raw-json-copy-btn.is-copied { color: hsl(var(--primary)); border-color: hsl(var(--primary)); }
 
   /* Search/select/text/raw-prop inputs above all share this focus treatment. */
   .search-input:focus-visible, .prop-select:focus-visible, .prop-text-input:focus-visible,
@@ -994,6 +1007,31 @@ function downloadJson(filename, data) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Lucide's exact SVG source (copy / check), matching this app's convention elsewhere.
+const COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+const CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+
+/** Copies `text` and briefly swaps `btn`'s icon to a checkmark as confirmation, since
+ * clipboard writes give no other visible feedback on their own. Silently gives up (leaving the
+ * button as a plain copy icon) if the Clipboard API is unavailable or permission is denied -
+ * there's no good fallback worth the complexity for a read-only convenience action like this one. */
+async function copyToClipboard(btn, text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (err) {
+    console.warn("[editor] couldn't copy to clipboard:", err);
+    return;
+  }
+  const original = btn.innerHTML;
+  btn.innerHTML = CHECK_ICON;
+  btn.classList.add("is-copied");
+  clearTimeout(btn._copyResetTimer);
+  btn._copyResetTimer = setTimeout(() => {
+    btn.innerHTML = original;
+    btn.classList.remove("is-copied");
+  }, 1200);
 }
 
 // A crash/reload safety net only (STYLE_EDITOR_PLAN.md §10) - never presented as an alternative to
@@ -2000,10 +2038,23 @@ async function main() {
     details.className = "raw-json";
     const summary = document.createElement("summary");
     summary.textContent = "Layer JSON (read-only)";
+    const body = document.createElement("div");
+    body.className = "raw-json-body";
     const pre = document.createElement("pre");
     pre.id = "raw-json-pre";
     pre.textContent = JSON.stringify(layer, null, 2);
-    details.append(summary, pre);
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "raw-json-copy-btn";
+    copyBtn.title = "Copy layer JSON";
+    copyBtn.setAttribute("aria-label", "Copy layer JSON");
+    copyBtn.innerHTML = COPY_ICON;
+    // Reads pre.textContent live at click time, not a value captured now - edits update it in
+    // place (refreshRawJson()) without rebuilding this button, so this always copies the current
+    // JSON, including anything changed since the panel last fully re-rendered.
+    copyBtn.addEventListener("click", () => copyToClipboard(copyBtn, pre.textContent));
+    body.append(pre, copyBtn);
+    details.append(summary, body);
     propBodyEl.appendChild(details);
   }
 
