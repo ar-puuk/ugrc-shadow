@@ -25,7 +25,7 @@
     font: 14px/1.4 "Inter", system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  button, input { font: inherit; color: inherit; }
+  button, input, select, textarea { font: inherit; color: inherit; }
 
   .glass {
     background: var(--glass-bg);
@@ -205,10 +205,27 @@
   .number-row { display: flex; align-items: center; gap: 8px; }
   .number-row input[type=range] { flex: 1 1 auto; }
   .number-row output { flex: none; width: 3em; text-align: right; font-size: 11.5px; color: var(--text-dim); font-family: monospace; }
-  .expr-note {
-    font-size: 11.5px; color: var(--text-dim); font-style: italic;
-    padding: 6px 8px; border-radius: 6px; background: rgba(255, 255, 255, .04);
+  .prop-select, .prop-text-input {
+    width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, .05); color: var(--text); font-size: 12.5px;
   }
+  .prop-text-input { font-family: monospace; }
+  .checkbox-label { display: flex !important; align-items: center; gap: 6px; cursor: pointer; }
+  .raw-prop-input {
+    width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, .05); color: var(--text); font-size: 11.5px; font-family: monospace;
+    resize: vertical;
+  }
+  .raw-prop-error { font-size: 11px; color: var(--danger); margin-top: 4px; }
+  .prop-section { margin: 18px 0 14px; padding-top: 14px; border-top: 1px solid var(--glass-border); }
+  .prop-section-title { margin: 0 0 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); }
+  .filter-row { display: flex; gap: 6px; }
+  .filter-row .prop-select { flex: 0 0 4.5em; }
+  .filter-row .filter-field { flex: 1 1 auto; }
+  .filter-row .filter-value { flex: 1 1 auto; }
+  .zoom-row { display: flex; align-items: center; gap: 6px; }
+  .zoom-row label { font-size: 11.5px; color: var(--text-dim); }
+  .zoom-row .zoom-input { width: 5em; flex: none; }
   .prop-actions { display: flex; gap: 8px; margin: 16px 0; }
   details.raw-json summary { cursor: pointer; font-size: 11.5px; color: var(--text-dim); margin-bottom: 6px; }
   .raw-json pre {
@@ -291,7 +308,7 @@
 
     <aside id="prop-panel" class="right">
       <div class="panel-head"><h2>Properties</h2></div>
-      <div id="prop-body"><p class="prop-empty">Select a layer on the left to edit its color and opacity.</p></div>
+      <div id="prop-body"><p class="prop-empty">Select a layer on the left to edit it.</p></div>
     </aside>
   </main>
 </div>
@@ -313,23 +330,54 @@ const DEFAULT_TEMPLATE = "shadow";
 const SERVICE_ORDER = ["VectorHillshade", "LiteBase", "LiteLabels"];
 const SERVICE_ABBR = { VectorHillshade: "VH", LiteBase: "LB", LiteLabels: "LL" };
 
-// Which paint properties this editor exposes, per layer type - the thin-slice scope is
-// explicitly color + opacity only (see STYLE_EDITOR_PLAN.md's phased plan); anything else
-// (numbers, enums, filters, expressions) is left to the raw-JSON view for now.
-const COLOR_PROPS = {
-  fill: ["fill-color", "fill-outline-color"],
-  line: ["line-color"],
-  circle: ["circle-color", "circle-stroke-color"],
-  symbol: ["text-color", "text-halo-color", "icon-color"],
-  background: ["background-color"],
-};
-const OPACITY_PROPS = {
-  fill: ["fill-opacity"],
-  line: ["line-opacity"],
-  circle: ["circle-opacity", "circle-stroke-opacity"],
-  symbol: ["icon-opacity", "text-opacity"],
-  background: ["background-opacity"],
-  raster: ["raster-opacity"],
+// One spec per GL property name this editor knows how to render a typed control for (property
+// names are unique across layer types in the style spec, e.g. "line-width" can't appear on a fill
+// layer, so no per-type table is needed). Range bounds are sized with headroom above the largest
+// value actually seen across both committed themes' LiteBase/LiteLabels files, not pulled from the
+// formal GL spec (most of these have no hard spec maximum). A property with no entry here - or
+// whose current value is an array/object (a data-driven expression, an old-style {stops:[...]}
+// function, a font-stack array, etc.) - falls back to an editable raw-JSON field instead of one of
+// these controls; see renderPropertyRow().
+const PROPERTY_SPECS = {
+  "fill-color": { kind: "color" },
+  "fill-outline-color": { kind: "color" },
+  "line-color": { kind: "color" },
+  "circle-color": { kind: "color" },
+  "circle-stroke-color": { kind: "color" },
+  "icon-color": { kind: "color" },
+  "text-color": { kind: "color" },
+  "text-halo-color": { kind: "color" },
+
+  "fill-opacity": { kind: "range", min: 0, max: 1, step: 0.01 },
+  "line-opacity": { kind: "range", min: 0, max: 1, step: 0.01 },
+  "line-width": { kind: "range", min: 0, max: 40, step: 0.1 },
+  "line-offset": { kind: "range", min: -20, max: 20, step: 0.1 },
+  "circle-radius": { kind: "range", min: 0, max: 20, step: 0.1 },
+  "circle-stroke-width": { kind: "range", min: 0, max: 10, step: 0.1 },
+  "text-halo-width": { kind: "range", min: 0, max: 5, step: 0.1 },
+  "icon-rotate": { kind: "range", min: -180, max: 180, step: 1 },
+  "symbol-spacing": { kind: "range", min: 0, max: 2000, step: 1 },
+  "text-letter-spacing": { kind: "range", min: -2, max: 5, step: 0.01 },
+  "text-size": { kind: "range", min: 0, max: 50, step: 0.5 },
+
+  "line-cap": { kind: "enum", values: ["butt", "round", "square"] },
+  "line-join": { kind: "enum", values: ["bevel", "round", "miter"] },
+  "icon-rotation-alignment": { kind: "enum", values: ["map", "viewport", "auto"] },
+  "text-rotation-alignment": { kind: "enum", values: ["map", "viewport", "auto"] },
+  "symbol-placement": { kind: "enum", values: ["point", "line", "line-center"] },
+  "text-justify": { kind: "enum", values: ["auto", "left", "center", "right"] },
+  "text-anchor": {
+    kind: "enum",
+    values: ["center", "left", "right", "top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"],
+  },
+
+  "icon-allow-overlap": { kind: "boolean" },
+  "icon-keep-upright": { kind: "boolean" },
+  "text-allow-overlap": { kind: "boolean" },
+  "text-optional": { kind: "boolean" },
+
+  "text-field": { kind: "string" },
+  "icon-image": { kind: "string" },
 };
 
 /** Parses a MapLibre color VALUE (not a full expression) into {hex, alpha}, or null if it isn't a
@@ -447,9 +495,9 @@ async function main() {
   }
 
   function dominantSwatch(layer) {
-    const props = [...(COLOR_PROPS[layer.type] || [])];
-    for (const p of props) {
-      const parsed = parseColor(layer.paint && layer.paint[p]);
+    for (const p of Object.keys(layer.paint || {})) {
+      if (!PROPERTY_SPECS[p] || PROPERTY_SPECS[p].kind !== "color") continue;
+      const parsed = parseColor(layer.paint[p]);
       if (parsed) return parsed.hex;
     }
     return null;
@@ -753,28 +801,32 @@ async function main() {
     renderPropertyPanel();
   }
 
-  function applyPaintEdit(layer, prop, value) {
-    layer.paint = layer.paint || {};
-    layer.paint[prop] = value;
-    map.setPaintProperty(layer.id, prop, value);
+  function applyPropertyEdit(layer, kind, prop, value) {
+    const bucket = kind === "layout" ? (layer.layout = layer.layout || {}) : (layer.paint = layer.paint || {});
+    bucket[prop] = value;
+    if (kind === "layout") map.setLayoutProperty(layer.id, prop, value);
+    else map.setPaintProperty(layer.id, prop, value);
     markLayerChecked(layer);
   }
 
-  function renderColorRow(layer, prop) {
-    const wrap = document.createElement("div");
-    wrap.className = "prop-row";
+  function formatNumber(value, step) {
+    const decimals = (String(step).split(".")[1] || "").length;
+    return value.toFixed(decimals);
+  }
+
+  function propRowLabel(prop) {
     const label = document.createElement("label");
     label.textContent = prop;
-    wrap.appendChild(label);
+    return label;
+  }
 
-    const value = layer.paint[prop];
-    if (Array.isArray(value)) {
-      const note = document.createElement("div");
-      note.className = "expr-note";
-      note.textContent = "Data-driven expression - not editable here yet.";
-      wrap.appendChild(note);
-      return wrap;
-    }
+  function renderColorRow(layer, kind, prop) {
+    const wrap = document.createElement("div");
+    wrap.className = "prop-row";
+    wrap.appendChild(propRowLabel(prop));
+
+    const bucket = kind === "layout" ? layer.layout : layer.paint;
+    const value = bucket[prop];
     const parsed = parseColor(value) || { hex: "#888888", alpha: 1 };
     const colorRow = document.createElement("div");
     colorRow.className = "color-row";
@@ -801,7 +853,7 @@ async function main() {
     const commit = (hex, alpha) => {
       const formatted = formatColor(hex, alpha);
       text.value = formatted;
-      applyPaintEdit(layer, prop, formatted);
+      applyPropertyEdit(layer, kind, prop, formatted);
       refreshRawJson(layer);
     };
     swatch.addEventListener("input", () => commit(swatch.value, Number(alphaSlider.value)));
@@ -815,44 +867,277 @@ async function main() {
       swatch.value = reparsed.hex;
       alphaSlider.value = String(reparsed.alpha);
       alphaOut.textContent = reparsed.alpha.toFixed(2);
-      applyPaintEdit(layer, prop, text.value);
+      applyPropertyEdit(layer, kind, prop, text.value);
       refreshRawJson(layer);
     });
     return wrap;
   }
 
-  function renderOpacityRow(layer, prop) {
+  function renderRangeRow(layer, kind, prop, spec) {
     const wrap = document.createElement("div");
     wrap.className = "prop-row";
-    const label = document.createElement("label");
-    label.textContent = prop;
-    wrap.appendChild(label);
+    wrap.appendChild(propRowLabel(prop));
 
-    const value = layer.paint[prop];
-    if (Array.isArray(value)) {
-      const note = document.createElement("div");
-      note.className = "expr-note";
-      note.textContent = "Data-driven expression - not editable here yet.";
-      wrap.appendChild(note);
-      return wrap;
-    }
+    const bucket = kind === "layout" ? layer.layout : layer.paint;
+    const raw = bucket[prop];
+    const initial = Math.min(Math.max(typeof raw === "number" ? raw : spec.min, spec.min), spec.max);
+
     const numRow = document.createElement("div");
     numRow.className = "number-row";
     const slider = document.createElement("input");
     slider.type = "range";
-    slider.min = "0"; slider.max = "1"; slider.step = "0.01";
-    slider.value = String(value != null ? value : 1);
+    slider.min = String(spec.min); slider.max = String(spec.max); slider.step = String(spec.step);
+    slider.value = String(initial);
     const out = document.createElement("output");
-    out.textContent = Number(slider.value).toFixed(2);
+    out.textContent = formatNumber(initial, spec.step);
     numRow.append(slider, out);
     wrap.appendChild(numRow);
 
     slider.addEventListener("input", () => {
-      out.textContent = Number(slider.value).toFixed(2);
-      applyPaintEdit(layer, prop, Number(slider.value));
+      const v = Number(slider.value);
+      out.textContent = formatNumber(v, spec.step);
+      applyPropertyEdit(layer, kind, prop, v);
       refreshRawJson(layer);
     });
     return wrap;
+  }
+
+  function renderEnumRow(layer, kind, prop, spec) {
+    const wrap = document.createElement("div");
+    wrap.className = "prop-row";
+    wrap.appendChild(propRowLabel(prop));
+
+    const bucket = kind === "layout" ? layer.layout : layer.paint;
+    const value = bucket[prop];
+    const select = document.createElement("select");
+    select.className = "prop-select";
+    for (const v of spec.values) {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      if (v === value) opt.selected = true;
+      select.appendChild(opt);
+    }
+    select.addEventListener("change", () => {
+      applyPropertyEdit(layer, kind, prop, select.value);
+      refreshRawJson(layer);
+    });
+    wrap.appendChild(select);
+    return wrap;
+  }
+
+  function renderBooleanRow(layer, kind, prop) {
+    const wrap = document.createElement("div");
+    wrap.className = "prop-row";
+    const label = document.createElement("label");
+    label.className = "checkbox-label";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    const bucket = kind === "layout" ? layer.layout : layer.paint;
+    checkbox.checked = !!bucket[prop];
+    checkbox.addEventListener("change", () => {
+      applyPropertyEdit(layer, kind, prop, checkbox.checked);
+      refreshRawJson(layer);
+    });
+    label.append(checkbox, document.createTextNode(" " + prop));
+    wrap.appendChild(label);
+    return wrap;
+  }
+
+  function renderStringRow(layer, kind, prop) {
+    const wrap = document.createElement("div");
+    wrap.className = "prop-row";
+    wrap.appendChild(propRowLabel(prop));
+
+    const bucket = kind === "layout" ? layer.layout : layer.paint;
+    const value = bucket[prop];
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "prop-text-input";
+    input.value = value != null ? String(value) : "";
+    input.addEventListener("change", () => {
+      applyPropertyEdit(layer, kind, prop, input.value);
+      refreshRawJson(layer);
+    });
+    wrap.appendChild(input);
+    return wrap;
+  }
+
+  /** The fallback for anything without a spec above, or whose value is an array/object (a
+   * data-driven expression, an old-style {stops:[...]} function, a font-stack array) - a plain
+   * editable JSON field rather than a read-only note, per STYLE_EDITOR_PLAN.md §7's "raw-JSON
+   * textarea for that single property, parsed/validated on blur." */
+  function renderRawPropertyRow(layer, kind, prop) {
+    const wrap = document.createElement("div");
+    wrap.className = "prop-row";
+    wrap.appendChild(propRowLabel(prop));
+
+    const bucket = kind === "layout" ? layer.layout : layer.paint;
+    const textarea = document.createElement("textarea");
+    textarea.className = "raw-prop-input";
+    textarea.rows = 2;
+    textarea.value = JSON.stringify(bucket[prop]);
+    const err = document.createElement("div");
+    err.className = "raw-prop-error";
+    err.hidden = true;
+    textarea.addEventListener("blur", () => {
+      let value;
+      try { value = JSON.parse(textarea.value); }
+      catch { err.textContent = "Invalid JSON - not applied."; err.hidden = false; return; }
+      err.hidden = true;
+      applyPropertyEdit(layer, kind, prop, value);
+      refreshRawJson(layer);
+    });
+    wrap.append(textarea, err);
+    return wrap;
+  }
+
+  function renderPropertyRow(layer, kind, prop) {
+    const bucket = kind === "layout" ? layer.layout : layer.paint;
+    const value = bucket[prop];
+    if (value !== null && typeof value === "object") return renderRawPropertyRow(layer, kind, prop);
+    const spec = PROPERTY_SPECS[prop];
+    if (!spec) return renderRawPropertyRow(layer, kind, prop);
+    if (spec.kind === "color") return renderColorRow(layer, kind, prop);
+    if (spec.kind === "range") return renderRangeRow(layer, kind, prop, spec);
+    if (spec.kind === "enum") return renderEnumRow(layer, kind, prop, spec);
+    if (spec.kind === "boolean") return renderBooleanRow(layer, kind, prop);
+    if (spec.kind === "string") return renderStringRow(layer, kind, prop);
+    return renderRawPropertyRow(layer, kind, prop);
+  }
+
+  function collectEditableProps(layer) {
+    const out = [];
+    for (const prop of Object.keys(layer.paint || {})) out.push({ prop, kind: "paint" });
+    for (const prop of Object.keys(layer.layout || {})) {
+      if (prop === "visibility") continue; // shown via the layer list's checkbox instead
+      out.push({ prop, kind: "layout" });
+    }
+    return out;
+  }
+
+  /** All the sample filters in both committed themes are the plain `["==", field, value]` /
+   * `["!=", field, value]` shape - rendered as a small operator/field/value builder. Anything else
+   * (an "all"/"any" combinator, or no filter at all is just omitted) falls back to raw JSON. */
+  function renderFilterSection(layer) {
+    const section = document.createElement("div");
+    section.className = "prop-section";
+    const h = document.createElement("h3");
+    h.className = "prop-section-title";
+    h.textContent = "Filter";
+    section.appendChild(h);
+
+    if (layer.filter === undefined) {
+      const note = document.createElement("p");
+      note.className = "prop-empty";
+      note.textContent = "No filter on this layer.";
+      section.appendChild(note);
+      return section;
+    }
+
+    const filter = layer.filter;
+    const isSimple = Array.isArray(filter) && filter.length === 3
+      && (filter[0] === "==" || filter[0] === "!=") && typeof filter[1] === "string";
+    if (!isSimple) {
+      const textarea = document.createElement("textarea");
+      textarea.className = "raw-prop-input";
+      textarea.rows = 3;
+      textarea.value = JSON.stringify(filter);
+      const err = document.createElement("div");
+      err.className = "raw-prop-error";
+      err.hidden = true;
+      textarea.addEventListener("blur", () => {
+        let value;
+        try { value = JSON.parse(textarea.value); }
+        catch { err.textContent = "Invalid JSON - not applied."; err.hidden = false; return; }
+        if (!Array.isArray(value)) { err.textContent = "A filter must be an array."; err.hidden = false; return; }
+        err.hidden = true;
+        layer.filter = value;
+        map.setFilter(layer.id, value);
+        markLayerChecked(layer);
+        refreshRawJson(layer);
+      });
+      section.append(textarea, err);
+      return section;
+    }
+
+    const row = document.createElement("div");
+    row.className = "filter-row";
+    const opSelect = document.createElement("select");
+    opSelect.className = "prop-select";
+    for (const op of ["==", "!="]) {
+      const opt = document.createElement("option");
+      opt.value = op; opt.textContent = op;
+      if (op === filter[0]) opt.selected = true;
+      opSelect.appendChild(opt);
+    }
+    const fieldInput = document.createElement("input");
+    fieldInput.type = "text";
+    fieldInput.className = "prop-text-input filter-field";
+    fieldInput.value = filter[1];
+    const valueInput = document.createElement("input");
+    valueInput.type = "text";
+    valueInput.className = "prop-text-input filter-value";
+    valueInput.value = String(filter[2]);
+    row.append(opSelect, fieldInput, valueInput);
+    section.appendChild(row);
+
+    const commit = () => {
+      const raw = valueInput.value.trim();
+      const num = Number(raw);
+      const value = raw !== "" && !Number.isNaN(num) ? num : raw;
+      layer.filter = [opSelect.value, fieldInput.value, value];
+      map.setFilter(layer.id, layer.filter);
+      markLayerChecked(layer);
+      refreshRawJson(layer);
+    };
+    opSelect.addEventListener("change", commit);
+    fieldInput.addEventListener("change", commit);
+    valueInput.addEventListener("change", commit);
+    return section;
+  }
+
+  function renderZoomSection(layer) {
+    const section = document.createElement("div");
+    section.className = "prop-section";
+    const h = document.createElement("h3");
+    h.className = "prop-section-title";
+    h.textContent = "Zoom range";
+    section.appendChild(h);
+
+    const row = document.createElement("div");
+    row.className = "zoom-row";
+    const minLabel = document.createElement("label");
+    minLabel.textContent = "Min";
+    const minInput = document.createElement("input");
+    minInput.type = "number";
+    minInput.min = "0"; minInput.max = "24"; minInput.step = "1";
+    minInput.className = "prop-text-input zoom-input";
+    minInput.placeholder = "0";
+    minInput.value = layer.minzoom != null ? String(layer.minzoom) : "";
+
+    const maxLabel = document.createElement("label");
+    maxLabel.textContent = "Max";
+    const maxInput = document.createElement("input");
+    maxInput.type = "number";
+    maxInput.min = "0"; maxInput.max = "24"; maxInput.step = "1";
+    maxInput.className = "prop-text-input zoom-input";
+    maxInput.placeholder = "24";
+    maxInput.value = layer.maxzoom != null ? String(layer.maxzoom) : "";
+
+    const commit = () => {
+      if (minInput.value === "") delete layer.minzoom; else layer.minzoom = Number(minInput.value);
+      if (maxInput.value === "") delete layer.maxzoom; else layer.maxzoom = Number(maxInput.value);
+      map.setLayerZoomRange(layer.id, layer.minzoom ?? 0, layer.maxzoom ?? 24);
+      markLayerChecked(layer);
+      refreshRawJson(layer);
+    };
+    minInput.addEventListener("change", commit);
+    maxInput.addEventListener("change", commit);
+
+    row.append(minLabel, minInput, maxLabel, maxInput);
+    section.appendChild(row);
+    return section;
   }
 
   function refreshRawJson(layer) {
@@ -864,7 +1149,7 @@ async function main() {
     propBodyEl.innerHTML = "";
     const layer = current && current.style.layers.find((ly) => ly.id === selectedLayerId);
     if (!layer) {
-      propBodyEl.innerHTML = '<p class="prop-empty">Select a layer on the left to edit its color and opacity.</p>';
+      propBodyEl.innerHTML = '<p class="prop-empty">Select a layer on the left to edit it.</p>';
       return;
     }
     const heading = document.createElement("p");
@@ -878,18 +1163,17 @@ async function main() {
     typeLine.textContent = `${layer.type}${service ? ` · ${service}` : ""}`;
     propBodyEl.appendChild(typeLine);
 
-    layer.paint = layer.paint || {};
-    const colorProps = (COLOR_PROPS[layer.type] || []).filter((p) => Object.prototype.hasOwnProperty.call(layer.paint, p));
-    const opacityProps = (OPACITY_PROPS[layer.type] || []).filter((p) => Object.prototype.hasOwnProperty.call(layer.paint, p));
-
-    if (colorProps.length === 0 && opacityProps.length === 0) {
+    const entries = collectEditableProps(layer);
+    if (entries.length === 0) {
       const none = document.createElement("p");
       none.className = "prop-empty";
-      none.textContent = "No color or opacity paint properties on this layer.";
+      none.textContent = "No editable paint or layout properties on this layer.";
       propBodyEl.appendChild(none);
     }
-    for (const p of colorProps) propBodyEl.appendChild(renderColorRow(layer, p));
-    for (const p of opacityProps) propBodyEl.appendChild(renderOpacityRow(layer, p));
+    for (const { prop, kind } of entries) propBodyEl.appendChild(renderPropertyRow(layer, kind, prop));
+
+    propBodyEl.appendChild(renderFilterSection(layer));
+    propBodyEl.appendChild(renderZoomSection(layer));
 
     const actions = document.createElement("div");
     actions.className = "prop-actions";
