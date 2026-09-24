@@ -229,7 +229,21 @@
     background: hsl(var(--card));
     border-right: 1px solid hsl(var(--border));
   }
-  aside.right { border-right: none; border-left: 1px solid hsl(var(--border)); }
+  #layer-panel { width: var(--ugrc-layer-panel-width, 300px); }
+  aside.right { width: var(--ugrc-prop-panel-width, 300px); border-right: none; border-left: 1px solid hsl(var(--border)); }
+
+  .panel-resize {
+    flex: none; width: 6px; margin: 0 -3px; position: relative; z-index: 5;
+    cursor: col-resize; background: transparent; touch-action: none;
+  }
+  .panel-resize::after {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 50%;
+    width: 1px; transform: translateX(-50%);
+    background: transparent; transition: background .1s ease;
+  }
+  .panel-resize:hover::after, .panel-resize.is-dragging::after { background: hsl(var(--ring)); }
+  .panel-resize:focus-visible { outline: none; }
+  .panel-resize:focus-visible::after { background: hsl(var(--ring)); width: 2px; }
 
   .panel-head {
     padding: 10px 12px; border-bottom: 1px solid hsl(var(--border));
@@ -628,8 +642,9 @@
 
   @media (max-width: 900px) {
     main { flex-direction: column; overflow-y: auto; }
-    aside { width: 100%; max-height: 40vh; border: none; border-bottom: 1px solid hsl(var(--border)); }
+    aside, aside.right { width: 100%; max-height: 40vh; border: none; border-bottom: 1px solid hsl(var(--border)); }
     #map-wrap { min-height: 50vh; }
+    .panel-resize { display: none; }
   }
   @media (max-width: 480px) {
     .dd-button { width: 7em; }
@@ -693,6 +708,7 @@
       </div>
       <div id="layer-list"></div>
     </aside>
+    <div id="layer-panel-resize" class="panel-resize" role="separator" aria-orientation="vertical" aria-label="Resize layer panel" tabindex="0"></div>
 
     <div id="map-wrap">
       <div id="map"></div>
@@ -702,6 +718,7 @@
       </div>
     </div>
 
+    <div id="prop-panel-resize" class="panel-resize" role="separator" aria-orientation="vertical" aria-label="Resize property panel" tabindex="0"></div>
     <aside id="prop-panel" class="right">
       <div class="panel-head"><h2>Properties</h2></div>
       <div id="prop-body"><p class="prop-empty">Select a layer on the left to edit it.</p></div>
@@ -1147,6 +1164,70 @@ for (const btn of themeButtons) {
   btn.addEventListener("click", () => applyThemeChoice(btn.dataset.themeChoice));
 }
 applyThemeChoice(currentThemeChoice());
+
+// Draggable side-panel resizing. Each handle drags the adjacent <aside>'s width via a CSS custom
+// property (read by #layer-panel/aside.right in the stylesheet), persisted per-panel so the choice
+// survives a reload. Disabled entirely under the 900px breakpoint, where panels stack vertically
+// and the handles are hidden (display: none) - pointer handlers become no-ops there since the
+// handle has zero layout size, but we still skip work defensively.
+function makeResizable(handleEl, panelEl, { min, max, side, storageKey }) {
+  const stored = Number(localStorage.getItem(storageKey));
+  if (Number.isFinite(stored) && stored >= min && stored <= max) {
+    panelEl.style.setProperty(`--${storageKey}`, `${stored}px`);
+  }
+
+  let startX = 0;
+  let startWidth = 0;
+  let dragging = false;
+
+  function widthFor(clientX) {
+    const delta = side === "left" ? clientX - startX : startX - clientX;
+    const width = Math.round(startWidth + delta);
+    return Math.min(max, Math.max(min, width));
+  }
+
+  function setWidth(width) {
+    panelEl.style.setProperty(`--${storageKey}`, `${width}px`);
+    localStorage.setItem(storageKey, String(width));
+  }
+
+  function onPointerMove(e) {
+    if (!dragging) return;
+    setWidth(widthFor(e.clientX));
+  }
+  function onPointerUp(e) {
+    if (!dragging) return;
+    dragging = false;
+    handleEl.classList.remove("is-dragging");
+    handleEl.releasePointerCapture(e.pointerId);
+  }
+  handleEl.addEventListener("pointerdown", (e) => {
+    if (window.matchMedia("(max-width: 900px)").matches) return;
+    dragging = true;
+    startX = e.clientX;
+    startWidth = panelEl.getBoundingClientRect().width;
+    handleEl.classList.add("is-dragging");
+    handleEl.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  handleEl.addEventListener("pointermove", onPointerMove);
+  handleEl.addEventListener("pointerup", onPointerUp);
+  handleEl.addEventListener("pointercancel", onPointerUp);
+  handleEl.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const current = panelEl.getBoundingClientRect().width;
+    const step = (e.key === "ArrowRight") === (side === "left") ? 16 : -16;
+    setWidth(Math.min(max, Math.max(min, Math.round(current + step))));
+  });
+}
+
+makeResizable(document.getElementById("layer-panel-resize"), document.getElementById("layer-panel"), {
+  min: 220, max: 560, side: "left", storageKey: "ugrc-layer-panel-width",
+});
+makeResizable(document.getElementById("prop-panel-resize"), document.getElementById("prop-panel"), {
+  min: 240, max: 560, side: "right", storageKey: "ugrc-prop-panel-width",
+});
 
 async function main() {
   const statusEl = document.getElementById("status");
