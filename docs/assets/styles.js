@@ -90,6 +90,19 @@ function toTilesSource(src) {
   return { ...rest, tiles: [url + "tile/{z}/{y}/{x}.pbf"] };
 }
 
+/** Deep-clones `style` and converts any vector source still in Esri's `url` shape into MapLibre's
+ * `tiles` array shape (see toTilesSource above), leaving everything else untouched. For rendering
+ * an uploaded style that might itself be one of this repo's own Esri-shaped exports re-uploaded
+ * as-is - a plain MapLibre-native style (already a `tiles` array, or a non-vector source) passes
+ * through unchanged. Never mutates `style`. */
+export function prepareForRender(style) {
+  const clone = JSON.parse(JSON.stringify(style));
+  for (const [key, src] of Object.entries(clone.sources || {})) {
+    clone.sources[key] = toTilesSource(src);
+  }
+  return clone;
+}
+
 /** JS port of the original R reference script's ugrc_merge_styles(): combine several named styles
  * (each with their own "esri" source) into one MapLibre style, namespacing sources and sprites so
  * they can coexist, and dedup layer ids. List order (Object.keys order) = bottom -> top.

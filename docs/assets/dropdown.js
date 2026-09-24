@@ -87,7 +87,20 @@ export class Dropdown extends EventTarget {
   }
 
   set value(key) {
-    if (!(key in this.options)) return;
+    if (!this._setSelected(key)) return;
+    this.dispatchEvent(new Event("change"));
+  }
+
+  /** Sets the selected value without dispatching "change" - for reverting a selection a caller
+   * vetoed (e.g. the user cancelled a confirm() prompt) without re-triggering its own "change"
+   * listener, which a plain `.value =` revert would do and could loop. */
+  setValueSilently(key) {
+    this._setSelected(key);
+  }
+
+  /** Returns true if `key` was valid and actually changed the selection. */
+  _setSelected(key) {
+    if (!(key in this.options)) return false;
     const changed = this._value !== key;
     this._value = key;
     this.label.textContent = this.options[key].label;
@@ -95,7 +108,7 @@ export class Dropdown extends EventTarget {
       li.classList.toggle("is-selected", li.dataset.value === key);
       li.setAttribute("aria-selected", String(li.dataset.value === key));
     }
-    if (changed) this.dispatchEvent(new Event("change"));
+    return changed;
   }
 
   _setActive(key) {
