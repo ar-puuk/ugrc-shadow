@@ -75,7 +75,7 @@ def build(out_dir: Path, base_url: str | None = None) -> None:
     for name, svc in cfg.services.items():
         print(f"fetching {name} live from UGRC ...")
         style = fetch_json(svc["style_url"])
-        dark, report = darkener.darken(style, svc, svc["style_url"])
+        dark, report = darkener.darken(style, svc, svc["style_url"], source_mode="url")
         dark_styles[name] = dark
         n_rule = sum(1 for r in report if r[3])
         print(f"  {name}: {len(report)} layers, {n_rule} matched a rule")

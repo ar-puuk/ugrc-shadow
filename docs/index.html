@@ -95,9 +95,28 @@ function joinUrl(base, rel) {
   return new URL(rel, base).href.replace(/%7B/g, "{").replace(/%7D/g, "}");
 }
 
+/** A vector source's `url` points at Esri's own VectorTileServer root (both UGRC's live styles
+ * and our committed dark styles keep this Esri shape rather than a MapLibre `tiles` array - see
+ * source_mode="url" in src/ugrc_shadow/engine.py's absolutize(), chosen so the dark styles stay
+ * a structural match for hosting as ArcGIS Online Vector Tile Style items). But that endpoint's
+ * own tile template is relative ("tile/{z}/{y}/{x}.pbf"), which ArcGIS's own runtime resolves
+ * but MapLibre GL JS does not when it fetches a source's `url` as TileJSON - it errors with
+ * "Failed to parse URL from tile/..." - so both sides of this demo flatten it into an explicit
+ * absolute `tiles` array before handing the style to MapLibre. `absUrl` must already be a
+ * fully-qualified, trailing-slash URL. */
+function vectorUrlSourceToTiles(src, absUrl) {
+  if (src.type === "vector") {
+    src.tiles = [absUrl + "tile/{z}/{y}/{x}.pbf"];
+    delete src.url;
+  } else {
+    src.url = absUrl;
+  }
+}
+
 /** JS port of src/ugrc_shadow/engine.py's absolutize(): rewrite Esri-relative sprite/glyphs/
- * source paths into absolute, MapLibre-ready URLs. Mutates `style` in place. Only needed for
- * the light side - the dark side's JSON is already absolutized by the Python build. */
+ * source paths into absolute, MapLibre-ready URLs. Mutates `style` in place. Needed for the
+ * light side, whose sprite/glyphs/source paths come straight from UGRC's still-Esri-relative
+ * root.json. */
 function absolutize(style, styleUrl) {
   const base = styleUrl.split(/[?#]/)[0];
   for (const key of ["sprite", "glyphs"]) {
@@ -107,15 +126,23 @@ function absolutize(style, styleUrl) {
     if (typeof src.url === "string") {
       let absUrl = joinUrl(base, src.url);
       if (!absUrl.endsWith("/")) absUrl += "/";
-      if (src.type === "vector") {
-        src.tiles = [absUrl + "tile/{z}/{y}/{x}.pbf"];
-        delete src.url;
-      } else {
-        src.url = absUrl;
-      }
+      vectorUrlSourceToTiles(src, absUrl);
     }
     if (Array.isArray(src.tiles)) {
       src.tiles = src.tiles.map((t) => joinUrl(base, t));
+    }
+  }
+}
+
+/** The committed dark styles' sprite/glyphs are already absolute (the Python build always
+ * absolutizes those regardless of source_mode), but their vector sources are deliberately left
+ * in Esri's `url` shape rather than MapLibre's `tiles` array (see vectorUrlSourceToTiles above)
+ * - so this demo has to do that one conversion itself before MapLibre can render them. */
+function resolveDarkSources(style) {
+  for (const src of Object.values(style.sources || {})) {
+    if (typeof src.url === "string") {
+      const absUrl = src.url.endsWith("/") ? src.url : src.url + "/";
+      vectorUrlSourceToTiles(src, absUrl);
     }
   }
 }
@@ -182,7 +209,9 @@ async function buildLightStyle() {
 async function buildDarkStyle() {
   const styles = {};
   for (const [name, url] of Object.entries(DARK_STYLE_URLS)) {
-    styles[name] = await fetchJson(url);
+    const style = await fetchJson(url);
+    resolveDarkSources(style);
+    styles[name] = style;
   }
   return mergeStyles(styles, { glyphsFrom: "LiteLabels" });
 }

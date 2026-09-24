@@ -65,6 +65,23 @@ def test_darken_absolutizes_sprite_and_glyphs():
     assert dark["glyphs"].startswith("https://example.com/")
 
 
+def test_darken_source_mode_url_keeps_esri_service_reference():
+    # UGRC's own root.json points sources at itself via a relative "url", not a tiles template -
+    # source_mode="url" must preserve that shape (just absolutized) so the output stays a
+    # structural match for Esri's style, since it's headed for ArcGIS Online, not just MapLibre.
+    style = _style()
+    style["sources"] = {"esri": {"type": "vector", "url": "../../"}}
+    dark, _ = _darkener().darken(
+        style,
+        _service(),
+        "https://example.com/services/Foo/resources/styles/root.json",
+        source_mode="url",
+    )
+    src = dark["sources"]["esri"]
+    assert src["url"] == "https://example.com/services/Foo/"
+    assert "tiles" not in src
+
+
 def test_darken_skip_rule_leaves_layer_untouched():
     service = {
         "rules": [{"note": "skip it", "match": {"id": "^roads$"}, "skip": True}],

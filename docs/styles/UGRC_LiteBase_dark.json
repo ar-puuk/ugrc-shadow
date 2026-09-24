@@ -15,9 +15,7 @@
       "minzoom": 0,
       "maxzoom": 19,
       "scheme": "xyz",
-      "tiles": [
-        "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteBase/VectorTileServer/tile/{z}/{y}/{x}.pbf"
-      ]
+      "url": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteBase/VectorTileServer/"
     }
   },
   "layers": [
