@@ -1,4 +1,4 @@
-from ugrc_styles.engine import Shadower
+from ugrc_styles.engine import Shadower, remap_icon_images
 
 
 def test_rule_matches_source_layer_and_type():
@@ -80,6 +80,21 @@ def test_shadow_source_mode_url_keeps_esri_service_reference():
     src = shadowed["sources"]["esri"]
     assert src["url"] == "https://example.com/services/Foo/"
     assert "tiles" not in src
+
+
+def test_remap_icon_images_renames_matching_only():
+    style = {
+        "layers": [
+            {"id": "a", "layout": {"icon-image": "Base/Foo"}},
+            {"id": "b", "layout": {"icon-image": "Base/Bar"}},
+            {"id": "c", "layout": {"text-field": "x"}},  # no icon-image at all
+            {"id": "d"},  # no layout at all
+        ]
+    }
+    remap_icon_images(style, {"Base/Foo": "Overlay/Foo"})
+    by_id = {ly["id"]: ly for ly in style["layers"]}
+    assert by_id["a"]["layout"]["icon-image"] == "Overlay/Foo"
+    assert by_id["b"]["layout"]["icon-image"] == "Base/Bar"  # unmapped name left as-is
 
 
 def test_shadow_skip_rule_leaves_layer_untouched():

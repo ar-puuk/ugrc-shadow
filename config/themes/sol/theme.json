@@ -1,0 +1,33 @@
+{
+  "label": "Sol",
+  "description": "A warm light restyling based on CARTO's Voyager basemap colors.",
+  "palette_source": { "type": "carto", "style_url": "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json" },
+  "sprite_transform": "none",
+  "sprites": {
+    "_about": "Sol borrows UGRC's Vector_Overlay sprite (the colorful icon set built for their Hybrid basemap - bright shield reds/blues and distinct POI icons) instead of LiteBase/LiteLabels' own muted grayscale one. icon_remap translates each layer's icon-image name to Vector_Overlay's naming. A few LiteBase icons (OpenSourcePlaces, Trailheads, the Railroads tie-mark) have no Vector_Overlay equivalent and are left unmapped - those icons simply don't render for sol, a deliberate trade-off for the rest reading much better.",
+    "LiteBase": {
+      "source": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/Vector_Overlay/VectorTileServer/resources/sprites/sprite",
+      "icon_remap": {
+        "Base/LOCATIONS/AirportLocations": "LOCATIONS/AirportLocations",
+        "Base/LOCATIONS/CitiesTownsLocations_VT/Capital": "CitiesTownsLocations_VT/Capital",
+        "Base/LOCATIONS/LicensedHealthCareFacilities": "LOCATIONS/LicensedHealthCareFacilities",
+        "Base/LOCATIONS/PlaceNamesGNIS2010/Summit": "LOCATIONS/PlaceNamesGNIS2010/Summit",
+        "Base/LOCATIONS/SkiAreaLocations": "LOCATIONS/SkiAreaLocations",
+        "Base/TRANSIT/CommuterRailStops_UTA": "TRANSIT/CommuterRailStops_UTA",
+        "Base/TRANSIT/LightRailStations_UTA": "TRANSIT/LightRailStations_UTA"
+      }
+    },
+    "LiteLabels": {
+      "source": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/Vector_Overlay/VectorTileServer/resources/sprites/sprite",
+      "icon_remap": {
+        "Labels/Roads - Interstates and Ramps - white version/Interstates": "Roads - All/Interstates",
+        "Labels/Roads - Interstates and Ramps - white version/State Highways": "Roads - All/State Highways",
+        "Labels/Roads - Interstates and Ramps - white version/State Highways - 2.3m-2.8k": "Roads - All/State Highways",
+        "Labels/Roads - Interstates and Ramps - white version/US Highways": "Roads - All/US Highways",
+        "Labels/Roads - white version/Interstates": "Roads - All/Interstates",
+        "Labels/Roads - white version/State Highways": "Roads - All/State Highways",
+        "Labels/Roads - white version/US Highways": "Roads - All/US Highways"
+      }
+    }
+  }
+}

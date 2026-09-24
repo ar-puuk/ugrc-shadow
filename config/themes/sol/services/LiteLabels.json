@@ -1,12 +1,10 @@
 {
-  "style_url": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteLabels/VectorTileServer/resources/styles/root.json",
-  "output": "UGRC_LiteLabels_shadow.json",
   "background": null,
   "rules": [
     { "note": "road names",           "match": { "type": "symbol", "source_layer": "^Roads" },                          "paint": { "text-color": "@label", "text-halo-color": "@halo" } },
     { "note": "minor road names",     "match": { "type": "symbol", "source_layer": "^Roads", "id": "Minor Rds" },       "paint": { "text-color": "@label_minor" } },
-    { "note": "shield route numbers: shield icon itself is shadowed separately (see sprites.py); recolor the number to read against the now-shadowed shield",
-      "match": { "type": "symbol", "source_layer": "^Roads", "id": "/label/(Interstates|US Highways|State Highways)" }, "paint": { "text-color": "@shield_text" } },
+    { "note": "shield route numbers: Sol doesn't recolor the shield sprite (see theme.json sprite_transform=none), so leave Esri's original label text-color untouched too - it was already tuned to read against that shield's untouched colors",
+      "match": { "type": "symbol", "source_layer": "^Roads", "id": "/label/(Interstates|US Highways|State Highways)" }, "skip": true },
 
     { "note": "cities/towns",         "match": { "type": "symbol", "source_layer": "^CitiesTownsLocations" },           "paint": { "text-color": "@label_major", "text-halo-color": "@halo" } },
     { "note": "small places",         "match": { "type": "symbol", "source_layer": "^CitiesTownsLocations", "id": "- minor$" }, "paint": { "text-color": "@label" } },

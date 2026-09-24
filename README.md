@@ -2,54 +2,102 @@
 
 Alternate MapLibre styles for [UGRC](https://gis.utah.gov/)'s Lite vector basemap
 (`VectorHillshade`, `LiteBase`, `LiteLabels`), for [MapLibre](https://maplibre.org/). This repo
-is meant to hold more than one style over time; **shadow** — a dark restyling — is the first.
+holds more than one style, developed side by side:
+
+- **shadow** — a dark restyling built from [Protomaps](https://protomaps.com/)' dark flavor.
+- **sol** — a warm light restyling based on [CARTO](https://carto.com/)'s Voyager basemap colors,
+  using UGRC's `Vector_Overlay` sprite (the colorful icon set built for their Hybrid basemap)
+  in place of LiteBase/LiteLabels' own muted grayscale icons.
 
 **[Live compare demo →](https://ar-puuk.github.io/ugrc-styles/)** <!-- update once Pages is live -->
+Pick any theme (or UGRC's own live basemap) independently for each side of the slider.
 
 ## What this is
 
 UGRC publishes three public Esri vector-tile services that together make up their "Lite"
-basemap. This tool fetches all three **live** and rewrites their `paint` colors against a
-style's palette, producing three standalone, MapLibre-ready style JSONs — plus a recolored
-version of the highway-shield and base-icon sprite icons, which (being raster PNGs) can't be
-recolored through paint properties alone.
+basemap. For each theme, this tool fetches all three **live** and rewrites their `paint` colors
+against that theme's own palette, producing three standalone, MapLibre-ready style JSONs per
+theme — plus a reworked copy of the highway-shield and base-icon sprite icons, which (being
+raster PNGs) can't be recolored through paint properties alone.
 
-The one style implemented so far, **shadow**, is a dark restyling built from Protomaps' dark
-flavor (see below). The demo page swipes between UGRC's current Lite basemap and the shadow
-version, both rendered live in [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/).
+## Repo layout
+
+```
+config/
+  services.json           # UGRC's 3 live endpoints - shared by every theme
+  themes/
+    <theme>/
+      theme.json           # palette source + sprite transform + which sprites to rework (optionally from a different sprite sheet, with an icon-name remap)
+      fallback.json         # how unmatched color properties are treated
+      palette_extra.json    # this theme's own tokens with no equivalent in its live source
+      services/
+        LiteBase.json        # this theme's rules + background for one UGRC service
+        LiteLabels.json
+        VectorHillshade.json
+
+docs/
+  index.html               # the compare demo - reads themes.json, needs no per-theme changes
+  themes.json              # generated: theme labels + where each one's style JSONs live
+  <theme>/
+    styles/UGRC_<Service>_<theme>.json
+    sprites/{base-icons,shields}-<theme>.*
+```
+
+Adding a new theme means adding a `config/themes/<name>/` directory (see "Adding a theme"
+below) — nothing under `src/` or `docs/index.html` needs to change.
 
 ## Where the colors come from
 
-Most of the palette isn't "inspired by" [Protomaps](https://protomaps.com/)'s dark theme in a
-loose sense — it's the literal color tokens `@protomaps/basemaps`' `namedFlavor("dark")`
-returns, fetched live at build time (see [`src/ugrc_styles/palette.py`](src/ugrc_styles/palette.py)).
-A handful of additional tokens UGRC's layers need that Protomaps has no equivalent for
-(hillshade shading, road-class grays, trails, transit, etc.) live in
-[`config/palette_extra.json`](config/palette_extra.json).
+Each theme's palette is built from its own **live** upstream source, resolved fresh at build
+time (see [`src/ugrc_styles/palette.py`](src/ugrc_styles/palette.py)) plus a small set of
+theme-specific tokens that source has no equivalent for
+(`config/themes/<theme>/palette_extra.json`):
+
+- **shadow** uses the literal color tokens `@protomaps/basemaps`' `namedFlavor("dark")` returns.
+- **sol** uses colors read directly out of CARTO's public Voyager GL style JSON.
 
 Similarly, UGRC's own three style definitions are never vendored into this repo — every build
-fetches them fresh from UGRC's live ArcGIS endpoints (see [`src/ugrc_styles/fetch.py`](src/ugrc_styles/fetch.py)).
-Only the *generated shadow output* is committed, specifically so it can be used directly without
-running any code (see below).
+fetches them fresh from UGRC's live ArcGIS endpoints (see
+[`src/ugrc_styles/fetch.py`](src/ugrc_styles/fetch.py)). Only the *generated* style output is
+committed, specifically so it can be used directly without running any code (see below).
 
 ## Using the output directly
 
-`docs/styles/UGRC_{VectorHillshade,LiteBase,LiteLabels}_shadow.json` and
-`docs/sprites/{base-icons,shields}-shadow.*` are committed, ready-to-use artifacts — standalone
-MapLibre style JSON and sprite sheets, with
-absolute tile/sprite/glyph URLs already filled in. Add all three style layers to a MapLibre map
-the same way you'd add UGRC's originals; no light/original equivalent is published here, since
-UGRC's own live services are already directly usable for that.
+`docs/<theme>/styles/UGRC_{VectorHillshade,LiteBase,LiteLabels}_<theme>.json` and
+`docs/<theme>/sprites/{base-icons,shields}-<theme>.*` are committed, ready-to-use artifacts —
+standalone MapLibre style JSON and sprite sheets, with absolute tile/sprite/glyph URLs already
+filled in. Add all three style layers to a MapLibre map the same way you'd add UGRC's originals;
+no light/original equivalent is published here, since UGRC's own live services are already
+directly usable for that.
 
 ## Regenerating
 
 ```bash
 uv sync
-uv run ugrc-styles                       # writes docs/styles/*.json + docs/sprites/*
-uv run ugrc-styles --base-url https://ar-puuk.github.io/ugrc-styles  # absolute sprite URL for publishing
+uv run ugrc-styles                                  # every theme -> docs/<theme>/{styles,sprites} + docs/themes.json
+uv run ugrc-styles --theme shadow                    # just one theme (repeat --theme for more than one)
+uv run ugrc-styles --base-url https://ar-puuk.github.io/ugrc-styles  # absolute sprite URLs for publishing
 ```
 
-Run `uv run pytest` for the unit tests (color math + rule matching).
+Run `uv run pytest` for the unit tests (color math, rule matching, config/palette plumbing).
+
+## Adding a theme
+
+1. `config/themes/<name>/theme.json` — label/description, a `palette_source` (currently
+   `{"type": "protomaps", "flavor": ..., "version": ...}` or `{"type": "carto", "style_url": ...}`
+   — see [`src/ugrc_styles/palette.py`](src/ugrc_styles/palette.py) to add another source kind),
+   a `sprite_transform` (`"invert"` for a dark theme, `"none"` for a light-on-light one), and
+   which services' sprites need reworking (usually `LiteBase` and `LiteLabels`, plus any exact
+   `recolor` overrides an icon needs).
+2. `config/themes/<name>/fallback.json` — the lightness band unmatched fill/line/circle colors
+   get compressed into, and the tint unmatched text gets.
+3. `config/themes/<name>/palette_extra.json` — tokens with no equivalent in the theme's live
+   source (see the file's own `_about` for the discipline: nothing here may duplicate a value
+   the live source already provides).
+4. `config/themes/<name>/services/{LiteBase,LiteLabels,VectorHillshade}.json` — the actual
+   `@token`-driven rules per source-layer. Usually ported from an existing theme's rules with
+   the palette keys re-pointed at values that suit the new theme.
+5. `uv run ugrc-styles --theme <name>` and eyeball the result in `docs/index.html` locally.
 
 ## Credits
 
@@ -57,8 +105,9 @@ Run `uv run pytest` for the unit tests (color math + rule matching).
   ArcGIS Online `VectorTileServer` endpoints.
 - Shadow palette: [Protomaps](https://protomaps.com/) `@protomaps/basemaps`
   (BSD-3-Clause), via its `namedFlavor("dark")`.
+- Sol palette: [CARTO](https://carto.com/)'s Voyager basemap style.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The Protomaps palette this derives from is BSD-3-Clause
+MIT — see [LICENSE](LICENSE). The Protomaps palette shadow derives from is BSD-3-Clause
 licensed; see the credits above.

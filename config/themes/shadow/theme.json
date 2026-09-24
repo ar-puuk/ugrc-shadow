@@ -1,0 +1,10 @@
+{
+  "label": "Shadow",
+  "description": "A dark restyling built from Protomaps' live dark flavor.",
+  "palette_source": { "type": "protomaps", "flavor": "dark", "version": "5.7.2" },
+  "sprite_transform": "invert",
+  "sprites": {
+    "LiteBase": { "recolor": { "Base/Railroads/0": "rail" } },
+    "LiteLabels": {}
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "background": null,
+  "rules": [
+    { "note": "Mask + Utah base",     "match": { "source_layer": "^Utah$" },                            "paint": { "fill-color": "@hs_base" } },
+    { "note": "shade class ~170-175", "match": { "id": "^Hillshade/ShadePolygons_.*/17\\d(_\\d+)?$" },   "paint": { "fill-color": "@hs_light" } },
+    { "note": "shade class ~140-165", "match": { "id": "^Hillshade/ShadePolygons_.*/1[4-6]\\d(_\\d+)?$" }, "paint": { "fill-color": "@hs_mid" } },
+    { "note": "shade class ~100-130", "match": { "id": "^Hillshade/ShadePolygons_.*/1[0-3]\\d(_\\d+)?$" }, "paint": { "fill-color": "@hs_shadow" } },
+    { "note": "shade class < 100",    "match": { "id": "^Hillshade/ShadePolygons_.*/\\d{1,2}(_\\d+)?$" }, "paint": { "fill-color": "@hs_shadow_deep" } }
+  ]
+}

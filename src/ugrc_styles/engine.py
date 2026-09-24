@@ -220,6 +220,23 @@ class Shadower:
         return style, report
 
 
+def remap_icon_images(style: dict, mapping: dict[str, str]) -> None:
+    """Mutates style in place: renames layout.icon-image values per `mapping` (exact match only -
+    UGRC's icon-image values are always plain literal strings, never data-driven expressions).
+
+    Used when a theme points a service's icons at a different sprite sheet than the service's
+    own (e.g. sol borrowing Vector_Overlay's colorful icons for LiteBase/LiteLabels) - the new
+    sheet almost certainly names its icons differently, so every icon-image reference has to be
+    translated or it'll resolve to nothing and silently stop rendering."""
+    for layer in style.get("layers", []):
+        layout = layer.get("layout")
+        if not layout:
+            continue
+        icon = layout.get("icon-image")
+        if isinstance(icon, str) and icon in mapping:
+            layout["icon-image"] = mapping[icon]
+
+
 # ----------------------------------------------------------------------------
 # paths: rewrite Esri-relative sprite/glyphs/sources into absolute, MapLibre-ready URLs
 # ----------------------------------------------------------------------------

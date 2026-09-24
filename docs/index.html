@@ -3,25 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UGRC Lite vs. Shadow</title>
+<title>UGRC Lite style compare</title>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
 <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.css">
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #1f1f1f; color: #ddd; font: 14px/1.4 system-ui, sans-serif; }
   #maps { position: relative; width: 100%; height: 100vh; overflow: hidden; }
   #before, #after { position: absolute; top: 0; bottom: 0; width: 100%; }
-  /* header/footer overlay BOTH the light and shadow map halves (they span the full width, the
-     compare slider only clips the maps beneath), so their backing scrim must never fade down
-     to transparent - it needs to stay dark enough on its own to hold white text over UGRC's
-     light basemap, not just over our shadow one. text-shadow is a second line of defense. */
+  /* header/footer overlay BOTH map halves (they span the full width, the compare slider only
+     clips the maps beneath), so their backing scrim must never fade down to transparent - it
+     needs to stay dark enough on its own to hold white text over any light basemap, not just
+     over a dark one. text-shadow is a second line of defense. */
   header {
     position: absolute; top: 0; left: 0; right: 0; z-index: 2;
     padding: 10px 14px; background: linear-gradient(rgba(0,0,0,.75), rgba(0,0,0,.35));
     pointer-events: none;
   }
-  header h1, header p { text-shadow: 0 1px 3px rgba(0,0,0,.9); }
-  header h1 { margin: 0; font-size: 15px; font-weight: 600; color: #fff; }
-  header p { margin: 2px 0 0; font-size: 12px; color: #eee; }
+  header .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; pointer-events: none; }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
+  .picker { display: flex; align-items: center; gap: 6px; pointer-events: auto; }
+  .picker label { font-size: 11px; color: #eee; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
+  .picker select {
+    font: inherit; font-size: 12px; padding: 3px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,.4);
+    background: rgba(0,0,0,.55); color: #fff;
+  }
   footer {
     position: absolute; bottom: 0; left: 0; right: 0; z-index: 2;
     padding: 6px 14px; font-size: 11px; color: #eee; background: linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.75));
@@ -30,8 +35,7 @@
   footer a { color: #fff; }
   /* Mounted directly on #maps (a sibling of #before/#after, not inside either), so the compare
      slider's clip - which only clips the two map containers - never hides it. Top offset is set
-     from JS (header height varies - its subtitle wraps to a second line at phone widths), not
-     hardcoded here. */
+     from JS (header height varies - the picker row wraps at phone widths), not hardcoded here. */
   #nav-control { position: absolute; right: 10px; z-index: 4; }
   #status {
     position: absolute; z-index: 3; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -47,12 +51,21 @@
   <div id="nav-control"></div>
 </div>
 <header>
-  <h1>UGRC Lite &mdash; original vs. shadow</h1>
-  <p>Left: UGRC's live Lite basemap. Right: <a href="https://github.com/" style="color:#fff">ugrc-styles</a>'s shadow restyle. Drag the slider to compare.</p>
+  <div class="row">
+    <h1>UGRC Lite style compare</h1>
+    <div class="picker">
+      <label for="left-pick">Left</label>
+      <select id="left-pick"></select>
+    </div>
+    <div class="picker">
+      <label for="right-pick">Right</label>
+      <select id="right-pick"></select>
+    </div>
+  </div>
 </header>
 <footer>
   Basemap data &amp; tiles: <a href="https://gis.utah.gov/" target="_blank" rel="noopener">UGRC</a>, via Esri ArcGIS Online.
-  Shadow palette: <a href="https://protomaps.com/" target="_blank" rel="noopener">Protomaps</a> <code>@protomaps/basemaps</code> (BSD-3-Clause).
+  Styles: <a href="https://github.com/" style="color:#fff">ugrc-styles</a>.
 </footer>
 <div id="status">Loading UGRC's live styles&hellip;</div>
 
@@ -65,18 +78,14 @@ const CENTER = [-111.891, 40.761]; // Salt Lake City
 const ZOOM = 10;
 
 // UGRC's 3 original services, fetched live (never snapshotted - see README).
-const LIGHT_SERVICE_URLS = {
+const ORIGINAL_SERVICE_URLS = {
   VectorHillshade: "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/VectorHillshade/VectorTileServer/resources/styles/root.json",
   LiteBase:        "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteBase/VectorTileServer/resources/styles/root.json",
   LiteLabels:      "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteLabels/VectorTileServer/resources/styles/root.json",
 };
-
-// This tool's generated shadow output, committed in this repo (see README "Using the output directly").
-const SHADOW_STYLE_URLS = {
-  VectorHillshade: "styles/UGRC_VectorHillshade_shadow.json",
-  LiteBase:        "styles/UGRC_LiteBase_shadow.json",
-  LiteLabels:      "styles/UGRC_LiteLabels_shadow.json",
-};
+const ORIGINAL_KEY = "original";
+const DEFAULT_LEFT = ORIGINAL_KEY;
+const DEFAULT_RIGHT = "shadow";
 
 function withFormat(url) {
   return url.includes("f=") ? url : url + (url.includes("?") ? "&" : "?") + "f=json";
@@ -96,14 +105,14 @@ function joinUrl(base, rel) {
 }
 
 /** A vector source's `url` points at Esri's own VectorTileServer root (both UGRC's live styles
- * and our committed shadow styles keep this Esri shape rather than a MapLibre `tiles` array - see
- * source_mode="url" in src/ugrc_styles/engine.py's absolutize(), chosen so the shadow styles stay
- * a structural match for hosting as ArcGIS Online Vector Tile Style items). But that endpoint's
- * own tile template is relative ("tile/{z}/{y}/{x}.pbf"), which ArcGIS's own runtime resolves
- * but MapLibre GL JS does not when it fetches a source's `url` as TileJSON - it errors with
- * "Failed to parse URL from tile/..." - so both sides of this demo flatten it into an explicit
- * absolute `tiles` array before handing the style to MapLibre. `absUrl` must already be a
- * fully-qualified, trailing-slash URL. */
+ * and this repo's committed theme styles keep this Esri shape rather than a MapLibre `tiles`
+ * array - see source_mode="url" in src/ugrc_styles/engine.py's absolutize(), chosen so the
+ * generated styles stay a structural match for hosting as ArcGIS Online Vector Tile Style
+ * items). But that endpoint's own tile template is relative ("tile/{z}/{y}/{x}.pbf"), which
+ * ArcGIS's own runtime resolves but MapLibre GL JS does not when it fetches a source's `url` as
+ * TileJSON - it errors with "Failed to parse URL from tile/..." - so this demo flattens it into
+ * an explicit absolute `tiles` array before handing the style to MapLibre. `absUrl` must already
+ * be a fully-qualified, trailing-slash URL. */
 function vectorUrlSourceToTiles(src, absUrl) {
   if (src.type === "vector") {
     src.tiles = [absUrl + "tile/{z}/{y}/{x}.pbf"];
@@ -114,8 +123,8 @@ function vectorUrlSourceToTiles(src, absUrl) {
 }
 
 /** JS port of src/ugrc_styles/engine.py's absolutize(): rewrite Esri-relative sprite/glyphs/
- * source paths into absolute, MapLibre-ready URLs. Mutates `style` in place. Needed for the
- * light side, whose sprite/glyphs/source paths come straight from UGRC's still-Esri-relative
+ * source paths into absolute, MapLibre-ready URLs. Mutates `style` in place. Needed for
+ * "original", whose sprite/glyphs/source paths come straight from UGRC's still-Esri-relative
  * root.json. */
 function absolutize(style, styleUrl) {
   const base = styleUrl.split(/[?#]/)[0];
@@ -134,11 +143,11 @@ function absolutize(style, styleUrl) {
   }
 }
 
-/** The committed shadow styles' sprite/glyphs are already absolute (the Python build always
+/** A committed theme style's sprite/glyphs are already absolute (the Python build always
  * absolutizes those regardless of source_mode), but their vector sources are deliberately left
  * in Esri's `url` shape rather than MapLibre's `tiles` array (see vectorUrlSourceToTiles above)
  * - so this demo has to do that one conversion itself before MapLibre can render them. */
-function resolveShadowSources(style) {
+function resolveThemeSources(style) {
   for (const src of Object.values(style.sources || {})) {
     if (typeof src.url === "string") {
       const absUrl = src.url.endsWith("/") ? src.url : src.url + "/";
@@ -196,9 +205,9 @@ function mergeStyles(namedStyles, { glyphsFrom } = {}) {
   };
 }
 
-async function buildLightStyle() {
+async function buildOriginalStyle() {
   const styles = {};
-  for (const [name, url] of Object.entries(LIGHT_SERVICE_URLS)) {
+  for (const [name, url] of Object.entries(ORIGINAL_SERVICE_URLS)) {
     const style = await fetchJson(withFormat(url));
     absolutize(style, url);
     styles[name] = style;
@@ -206,28 +215,69 @@ async function buildLightStyle() {
   return mergeStyles(styles, { glyphsFrom: "LiteLabels" });
 }
 
-async function buildShadowStyle() {
+async function buildThemeStyle(themeManifest) {
   const styles = {};
-  for (const [name, url] of Object.entries(SHADOW_STYLE_URLS)) {
-    const style = await fetchJson(url);
-    resolveShadowSources(style);
+  for (const [name, relPath] of Object.entries(themeManifest.styles)) {
+    const style = await fetchJson(relPath);
+    resolveThemeSources(style);
     styles[name] = style;
   }
   return mergeStyles(styles, { glyphsFrom: "LiteLabels" });
 }
 
+/** Every option a picker can offer: "original" (UGRC's live basemap) plus one entry per theme
+ * from docs/themes.json - built once at load so left/right pickers, defaults, and the actual
+ * style builders all agree on the same list. */
+async function loadOptions() {
+  const themes = await fetchJson("themes.json");
+  const options = { [ORIGINAL_KEY]: { label: "UGRC Original (live)" } };
+  for (const [name, manifest] of Object.entries(themes)) {
+    options[name] = { label: manifest.label, manifest };
+  }
+  return options;
+}
+
+function populatePicker(select, options, selected) {
+  select.innerHTML = "";
+  for (const [key, opt] of Object.entries(options)) {
+    const el = document.createElement("option");
+    el.value = key;
+    el.textContent = opt.label;
+    select.appendChild(el);
+  }
+  select.value = selected;
+}
+
 async function main() {
   const statusEl = document.getElementById("status");
+  const leftPick = document.getElementById("left-pick");
+  const rightPick = document.getElementById("right-pick");
   try {
-    const [lightStyle, shadowStyle] = await Promise.all([buildLightStyle(), buildShadowStyle()]);
+    const options = await loadOptions();
+    populatePicker(leftPick, options, DEFAULT_LEFT in options ? DEFAULT_LEFT : Object.keys(options)[0]);
+    populatePicker(rightPick, options, DEFAULT_RIGHT in options ? DEFAULT_RIGHT : Object.keys(options)[0]);
+
+    // Cache built styles per option key so flipping a picker back and forth doesn't re-fetch.
+    const styleCache = new Map();
+    async function styleFor(key) {
+      if (styleCache.has(key)) return styleCache.get(key);
+      const built = key === ORIGINAL_KEY ? await buildOriginalStyle() : await buildThemeStyle(options[key].manifest);
+      styleCache.set(key, built);
+      return built;
+    }
+
+    const before = new maplibregl.Map({
+      container: "before", style: await styleFor(leftPick.value), center: CENTER, zoom: ZOOM, attributionControl: false,
+    });
+    const after = new maplibregl.Map({
+      container: "after", style: await styleFor(rightPick.value), center: CENTER, zoom: ZOOM, attributionControl: false,
+    });
 
     // MapLibre's own default attribution control is dropped: it would face the same
     // clipped-inside-a-map-container problem the nav control had, it collides with our footer,
     // and UGRC's "esri" source declares its attribution as the literal string "me" (seemingly a
     // leftover on their end) - not worth solving for text that isn't real credit anyway. Real
-    // attribution (UGRC/Esri, Protomaps) is already in our own <footer> below.
-    const before = new maplibregl.Map({ container: "before", style: lightStyle, center: CENTER, zoom: ZOOM, attributionControl: false });
-    const after = new maplibregl.Map({ container: "after", style: shadowStyle, center: CENTER, zoom: ZOOM, attributionControl: false });
+    // attribution (UGRC/Esri) is already in our own <footer> below.
     // A single control, shared by both maps: map.addControl() mounts a control INSIDE that
     // map's own container, which the compare slider clips to a left- or right-only region - so
     // whichever map it were attached to, the control would disappear past the slider. Instead
@@ -237,8 +287,8 @@ async function main() {
     const nav = new maplibregl.NavigationControl();
     const navEl = document.getElementById("nav-control");
     navEl.appendChild(nav.onAdd(after));
-    // header's height varies (its subtitle wraps to a second line at phone widths), so measure
-    // it instead of assuming a fixed offset - re-measure on resize since wrapping can change.
+    // header's height varies (the picker row wraps at phone widths), so measure it instead of
+    // assuming a fixed offset - re-measure on resize since wrapping can change.
     const placeNav = () => {
       navEl.style.top = `${document.querySelector("header").getBoundingClientRect().bottom + 10}px`;
     };
@@ -250,7 +300,7 @@ async function main() {
     // resource, not something introduced here. MapLibre's glyph parser throws on it, and that
     // can keep the map's 'load' event from ever firing even though everything else renders
     // fine - so the compare widget doesn't wait on 'load', just on the first real paint.
-    new maplibregl.Compare(before, after, "#maps", {});
+    const compare = new maplibregl.Compare(before, after, "#maps", {});
     for (const [label, map] of [["before", before], ["after", after]]) {
       map.on("error", (e) => {
         const err = e && e.error;
@@ -263,6 +313,18 @@ async function main() {
     ]).then(() => {
       statusEl.hidden = true;
     });
+
+    async function swap(map, key) {
+      statusEl.hidden = false;
+      statusEl.textContent = `Loading ${options[key].label}…`;
+      try {
+        map.setStyle(await styleFor(key));
+      } finally {
+        statusEl.hidden = true;
+      }
+    }
+    leftPick.addEventListener("change", () => swap(before, leftPick.value));
+    rightPick.addEventListener("change", () => swap(after, rightPick.value));
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Failed to load: " + err.message;

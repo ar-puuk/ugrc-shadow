@@ -1,0 +1,47 @@
+{
+  "_about": [
+    "UGRC-specific palette tokens that have no equivalent in CARTO Voyager's published style -",
+    "hillshade grades, road-class tans, rail/trail/transit, park/water/boundary variants. These",
+    "are layered on top of the tokens fetched live from Voyager's own style.json at build time",
+    "(see src/ugrc_styles/palette.py) to form the final palette.",
+    "Discipline: nothing here may duplicate an actual Voyager style value - if a token's color",
+    "legitimately comes from Voyager (matches a real layer's paint color, or clear intent, e.g.",
+    "hillshade's base tone = the land fill), it belongs in palette.py's CARTO_KEY_MAP instead.",
+    "Only genuinely UGRC-original tokens with no Voyager equivalent belong here."
+  ],
+
+  "urban_tint": "#f0e6d2",
+
+  "park_outline": "#a9c98f",
+  "park_band": "#cfe3bb",
+
+  "water_outline": "#8fb9c2",
+  "water_line": "#9dc9d1",
+  "water_shallow": "#c7e0e4",
+
+  "boundary_muni": "#c9ccd6",
+  "boundary_faint": "#e5e0da",
+  "boundary_halo": "#f3efed",
+  "airport_boundary": "#c98a63",
+
+  "contour": "#c9b18f",
+  "contour_index": "#b3936a",
+
+  "hs_light": "#f5f1e8",
+  "hs_mid": "#efe9dc",
+  "hs_shadow": "#e0d8c5",
+  "hs_shadow_deep": "#cfc4aa",
+
+  "road_casing": "#e6dfcb",
+  "road_medium": "#f3e2b8",
+  "road_unpaved": "#e8dcc0",
+  "rail": "#c7c2b6",
+  "trail_outer": "#d9cdb5",
+  "trail_inner": "#e8dcc0",
+  "transit_casing": "#e6dfcb",
+  "transit_fill": "#a89a7d",
+  "transit_other": "#c2b494",
+
+  "label_city_major": "#2f4762",
+  "label_park": "#3f6b4a"
+}

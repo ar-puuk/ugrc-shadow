@@ -1,0 +1,20 @@
+{
+  "shadow": {
+    "label": "Shadow",
+    "description": "A dark restyling built from Protomaps' live dark flavor.",
+    "styles": {
+      "VectorHillshade": "shadow/styles/UGRC_VectorHillshade_shadow.json",
+      "LiteBase": "shadow/styles/UGRC_LiteBase_shadow.json",
+      "LiteLabels": "shadow/styles/UGRC_LiteLabels_shadow.json"
+    }
+  },
+  "sol": {
+    "label": "Sol",
+    "description": "A warm light restyling based on CARTO's Voyager basemap colors.",
+    "styles": {
+      "VectorHillshade": "sol/styles/UGRC_VectorHillshade_sol.json",
+      "LiteBase": "sol/styles/UGRC_LiteBase_sol.json",
+      "LiteLabels": "sol/styles/UGRC_LiteLabels_sol.json"
+    }
+  }
+}

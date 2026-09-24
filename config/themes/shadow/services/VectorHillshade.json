@@ -1,6 +1,4 @@
 {
-  "style_url": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/VectorHillshade/VectorTileServer/resources/styles/root.json",
-  "output": "UGRC_VectorHillshade_shadow.json",
   "background": null,
   "rules": [
     { "note": "Mask + Utah base",     "match": { "source_layer": "^Utah$" },                            "paint": { "fill-color": "@hs_base" } },

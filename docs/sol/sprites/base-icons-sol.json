@@ -1,0 +1,82 @@
+{
+  "Roads - All/Interstates": {
+    "x": 0,
+    "y": 0,
+    "width": 25,
+    "height": 27,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "LOCATIONS/SkiAreaLocations": {
+    "x": 25,
+    "y": 0,
+    "width": 28,
+    "height": 26,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "Roads - All/US Highways": {
+    "x": 53,
+    "y": 0,
+    "width": 24,
+    "height": 23,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "LOCATIONS/LicensedHealthCareFacilities": {
+    "x": 0,
+    "y": 27,
+    "width": 22,
+    "height": 22,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "CitiesTownsLocations_VT/Capital": {
+    "x": 22,
+    "y": 27,
+    "width": 22,
+    "height": 22,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "LOCATIONS/AirportLocations": {
+    "x": 44,
+    "y": 27,
+    "width": 21,
+    "height": 21,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "Roads - All/State Highways": {
+    "x": 65,
+    "y": 27,
+    "width": 28,
+    "height": 21,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "TRANSIT/LightRailStations_UTA": {
+    "x": 0,
+    "y": 49,
+    "width": 19,
+    "height": 19,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "TRANSIT/CommuterRailStops_UTA": {
+    "x": 19,
+    "y": 49,
+    "width": 19,
+    "height": 19,
+    "pixelRatio": 1,
+    "sdf": false
+  },
+  "LOCATIONS/PlaceNamesGNIS2010/Summit": {
+    "x": 38,
+    "y": 49,
+    "width": 15,
+    "height": 13,
+    "pixelRatio": 1,
+    "sdf": false
+  }
+}

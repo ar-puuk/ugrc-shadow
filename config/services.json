@@ -1,0 +1,6 @@
+{
+  "_about": "UGRC's three live Lite basemap endpoints - shared across every theme (see config/themes/). Only a theme's rules/palette differ per style; the underlying services being restyled don't. Key order here is meaningful: it's the bottom-to-top render order the demo page (docs/index.html) merges them in, and the order src/ugrc_styles/config.py loads each theme's per-service rules in - VectorHillshade (terrain) at the bottom, LiteBase (fills/lines) in the middle, LiteLabels (text) on top.",
+  "VectorHillshade": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/VectorHillshade/VectorTileServer/resources/styles/root.json",
+  "LiteBase": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteBase/VectorTileServer/resources/styles/root.json",
+  "LiteLabels": "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteLabels/VectorTileServer/resources/styles/root.json"
+}

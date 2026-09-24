@@ -1,0 +1,9 @@
+{
+  "_about": "Shared fallback treatment for any color property no service rule explicitly touched: compresses fills/lines into Sol's light pastel range instead of leaving them at Esri's original saturation. Mirrors shadow's fallback.json but with the fill/line/circle band flipped toward high lightness (a light basemap) instead of low - text stays a similarly muted mid-gray either way, since label text needs to read dark against ANY background lightness.",
+  "fill": { "l_min": 0.74, "l_max": 0.90, "s_mult": 0.35 },
+  "line": { "l_min": 0.62, "l_max": 0.85, "s_mult": 0.45 },
+  "circle": { "l_min": 0.62, "l_max": 0.85, "s_mult": 0.45 },
+  "text": { "tint": { "l": 0.40, "s_mult": 0.30 } },
+  "text-halo-color": "@halo",
+  "skip_props": ["icon-color", "icon-halo-color"]
+}
