@@ -305,15 +305,15 @@
   .prop-layer-type { font-size: 11px; color: hsl(var(--muted-foreground)); margin: 0 0 14px; }
   .prop-row { position: relative; margin-bottom: 14px; }
   .prop-row label { display: block; font-size: 11.5px; color: hsl(var(--muted-foreground)); margin-bottom: 5px; }
-  .prop-row-removable { padding-right: 22px; } /* keeps the row's own content clear of the "x" */
+  .prop-row-removable { padding-right: 28px; } /* keeps the row's own content clear of the "x" */
   .prop-row-remove {
-    position: absolute; top: 0; right: 0;
+    position: absolute; top: -2px; right: -2px;
     display: flex; align-items: center; justify-content: center;
-    width: 16px; height: 16px; border: none; border-radius: calc(var(--radius) - 4px);
+    width: 22px; height: 22px; border: 1px solid transparent; border-radius: calc(var(--radius) - 3px);
     background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer;
   }
-  .prop-row-remove svg { width: 11px; height: 11px; }
-  .prop-row-remove:hover { background: hsl(var(--muted)); color: hsl(var(--destructive)); }
+  .prop-row-remove svg { width: 14px; height: 14px; stroke-width: 2.5; }
+  .prop-row-remove:hover { background: hsl(var(--muted)); border-color: hsl(var(--destructive)); color: hsl(var(--destructive)); }
   .prop-row-remove:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
   .add-property-row .prop-select { color: hsl(var(--muted-foreground)); }
   .color-row { display: flex; align-items: center; gap: 8px; }
