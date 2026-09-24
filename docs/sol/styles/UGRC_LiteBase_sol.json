@@ -8257,12 +8257,12 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#ccbdbd",
+        "line-color": "#d7d7d7",
         "line-dasharray": [
-          18,
-          3,
-          1,
-          3
+          31.5,
+          5.25,
+          1.75,
+          5.25
         ],
         "line-width": 1.33333
       }
