@@ -303,8 +303,19 @@
   .prop-empty { color: hsl(var(--muted-foreground)); font-size: 13px; }
   .prop-layer-id { font-size: 13px; font-weight: 600; word-break: break-word; margin: 0 0 2px; }
   .prop-layer-type { font-size: 11px; color: hsl(var(--muted-foreground)); margin: 0 0 14px; }
-  .prop-row { margin-bottom: 14px; }
+  .prop-row { position: relative; margin-bottom: 14px; }
   .prop-row label { display: block; font-size: 11.5px; color: hsl(var(--muted-foreground)); margin-bottom: 5px; }
+  .prop-row-removable { padding-right: 22px; } /* keeps the row's own content clear of the "x" */
+  .prop-row-remove {
+    position: absolute; top: 0; right: 0;
+    display: flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border: none; border-radius: calc(var(--radius) - 4px);
+    background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer;
+  }
+  .prop-row-remove svg { width: 11px; height: 11px; }
+  .prop-row-remove:hover { background: hsl(var(--muted)); color: hsl(var(--destructive)); }
+  .prop-row-remove:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
+  .add-property-row .prop-select { color: hsl(var(--muted-foreground)); }
   .color-row { display: flex; align-items: center; gap: 8px; }
   .color-row input[type=text] {
     flex: 1 1 auto; min-width: 0; padding: 6px 8px; border-radius: calc(var(--radius) - 2px); border: 1px solid hsl(var(--input));
@@ -723,6 +734,12 @@ const SERVICE_ABBR = { VectorHillshade: "VH", LiteBase: "LB", LiteLabels: "LL" }
 // whose current value is an array/object (a data-driven expression, an old-style {stops:[...]}
 // function, a font-stack array, etc.) - falls back to an editable raw-JSON field instead of one of
 // these controls; see renderPropertyRow().
+// Shared enum value lists (Mapbox/Esri GL style spec v8 - the spec ArcGIS's VectorTileServer
+// style JSON actually implements).
+const ANCHOR_2D_VALUES = ["map", "viewport"];
+const ANCHOR_2D_AUTO_VALUES = ["map", "viewport", "auto"];
+const TEXT_ICON_ANCHOR_VALUES = ["center", "left", "right", "top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"];
+
 const PROPERTY_SPECS = {
   "fill-color": { kind: "color" },
   "fill-outline-color": { kind: "color" },
@@ -730,39 +747,200 @@ const PROPERTY_SPECS = {
   "circle-color": { kind: "color" },
   "circle-stroke-color": { kind: "color" },
   "icon-color": { kind: "color" },
+  "icon-halo-color": { kind: "color" },
   "text-color": { kind: "color" },
   "text-halo-color": { kind: "color" },
 
   "fill-opacity": { kind: "range", min: 0, max: 1, step: 0.01 },
   "line-opacity": { kind: "range", min: 0, max: 1, step: 0.01 },
   "line-width": { kind: "range", min: 0, max: 40, step: 0.1 },
+  "line-gap-width": { kind: "range", min: 0, max: 40, step: 0.1 },
   "line-offset": { kind: "range", min: -20, max: 20, step: 0.1 },
+  "line-blur": { kind: "range", min: 0, max: 20, step: 0.1 },
+  "line-miter-limit": { kind: "range", min: 0, max: 10, step: 0.1 },
+  "line-round-limit": { kind: "range", min: 0, max: 5, step: 0.05 },
   "circle-radius": { kind: "range", min: 0, max: 20, step: 0.1 },
+  "circle-blur": { kind: "range", min: 0, max: 5, step: 0.05 },
+  "circle-opacity": { kind: "range", min: 0, max: 1, step: 0.01 },
   "circle-stroke-width": { kind: "range", min: 0, max: 10, step: 0.1 },
-  "text-halo-width": { kind: "range", min: 0, max: 5, step: 0.1 },
+  "circle-stroke-opacity": { kind: "range", min: 0, max: 1, step: 0.01 },
+  "icon-opacity": { kind: "range", min: 0, max: 1, step: 0.01 },
+  "icon-size": { kind: "range", min: 0, max: 5, step: 0.05 },
   "icon-rotate": { kind: "range", min: -180, max: 180, step: 1 },
+  "icon-padding": { kind: "range", min: 0, max: 20, step: 1 },
+  "icon-halo-width": { kind: "range", min: 0, max: 10, step: 0.1 },
+  "icon-halo-blur": { kind: "range", min: 0, max: 10, step: 0.1 },
+  "text-opacity": { kind: "range", min: 0, max: 1, step: 0.01 },
   "symbol-spacing": { kind: "range", min: 0, max: 2000, step: 1 },
   "text-letter-spacing": { kind: "range", min: -2, max: 5, step: 0.01 },
   "text-size": { kind: "range", min: 0, max: 50, step: 0.5 },
+  "text-max-width": { kind: "range", min: 0, max: 40, step: 0.5 },
+  "text-line-height": { kind: "range", min: 0, max: 5, step: 0.05 },
+  "text-radial-offset": { kind: "range", min: 0, max: 10, step: 0.1 },
+  "text-max-angle": { kind: "range", min: 0, max: 90, step: 1 },
+  "text-rotate": { kind: "range", min: -180, max: 180, step: 1 },
+  "text-padding": { kind: "range", min: 0, max: 20, step: 1 },
+  "text-halo-width": { kind: "range", min: 0, max: 5, step: 0.1 },
+  "text-halo-blur": { kind: "range", min: 0, max: 10, step: 0.1 },
 
   "line-cap": { kind: "enum", values: ["butt", "round", "square"] },
   "line-join": { kind: "enum", values: ["bevel", "round", "miter"] },
-  "icon-rotation-alignment": { kind: "enum", values: ["map", "viewport", "auto"] },
-  "text-rotation-alignment": { kind: "enum", values: ["map", "viewport", "auto"] },
+  "fill-translate-anchor": { kind: "enum", values: ANCHOR_2D_VALUES },
+  "line-translate-anchor": { kind: "enum", values: ANCHOR_2D_VALUES },
+  "circle-translate-anchor": { kind: "enum", values: ANCHOR_2D_VALUES },
+  "circle-pitch-scale": { kind: "enum", values: ANCHOR_2D_VALUES },
+  "circle-pitch-alignment": { kind: "enum", values: ANCHOR_2D_VALUES },
+  "icon-translate-anchor": { kind: "enum", values: ANCHOR_2D_VALUES },
+  "text-translate-anchor": { kind: "enum", values: ANCHOR_2D_VALUES },
+  "icon-rotation-alignment": { kind: "enum", values: ANCHOR_2D_AUTO_VALUES },
+  "icon-pitch-alignment": { kind: "enum", values: ANCHOR_2D_AUTO_VALUES },
+  "text-rotation-alignment": { kind: "enum", values: ANCHOR_2D_AUTO_VALUES },
+  "text-pitch-alignment": { kind: "enum", values: ANCHOR_2D_AUTO_VALUES },
   "symbol-placement": { kind: "enum", values: ["point", "line", "line-center"] },
   "text-justify": { kind: "enum", values: ["auto", "left", "center", "right"] },
-  "text-anchor": {
-    kind: "enum",
-    values: ["center", "left", "right", "top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"],
-  },
+  "text-transform": { kind: "enum", values: ["none", "uppercase", "lowercase"] },
+  "text-anchor": { kind: "enum", values: TEXT_ICON_ANCHOR_VALUES },
+  "icon-anchor": { kind: "enum", values: TEXT_ICON_ANCHOR_VALUES },
 
+  "fill-antialias": { kind: "boolean" },
+  "symbol-avoid-edges": { kind: "boolean" },
   "icon-allow-overlap": { kind: "boolean" },
+  "icon-ignore-placement": { kind: "boolean" },
+  "icon-optional": { kind: "boolean" },
   "icon-keep-upright": { kind: "boolean" },
   "text-allow-overlap": { kind: "boolean" },
+  "text-ignore-placement": { kind: "boolean" },
   "text-optional": { kind: "boolean" },
+  "text-keep-upright": { kind: "boolean" },
 
   "text-field": { kind: "string" },
   "icon-image": { kind: "string" },
+  "fill-pattern": { kind: "string" },
+  "line-pattern": { kind: "string" },
+};
+
+/** Every property this editor knows the ArcGIS/Mapbox GL style spec allows for a given layer
+ * type, used by the "Add property" control (STYLE_EDITOR_PLAN.md's originally-planned "add
+ * property affordance scoped to that layer's type") - independent of PROPERTY_SPECS above,
+ * which only covers how to render a *typed* control for a property once it exists. Anything
+ * listed here but missing from PROPERTY_SPECS (the several *-translate/-offset array properties,
+ * line-dasharray, text-font) still gets added with a real default value; it just renders via the
+ * raw-JSON fallback afterward; renderPropertyRow() already does that for any array-valued
+ * property automatically. Deliberately excludes a handful of the spec's more exotic properties
+ * that don't fit a simple per-property control at all (the *-sort-key rendering-order hints,
+ * icon-text-fit + its padding array, text-variable-anchor, text-writing-mode, line-gradient) -
+ * background/raster properties are also omitted since no layer in these services is ever that
+ * type, so there'd be nothing to add them to. */
+const LAYER_TYPE_PROPERTIES = {
+  fill: {
+    paint: ["fill-antialias", "fill-opacity", "fill-color", "fill-outline-color", "fill-translate", "fill-translate-anchor", "fill-pattern"],
+    layout: [],
+  },
+  line: {
+    paint: ["line-opacity", "line-color", "line-translate", "line-translate-anchor", "line-width", "line-gap-width", "line-offset", "line-blur", "line-dasharray", "line-pattern"],
+    layout: ["line-cap", "line-join", "line-miter-limit", "line-round-limit"],
+  },
+  circle: {
+    paint: ["circle-radius", "circle-color", "circle-blur", "circle-opacity", "circle-translate", "circle-translate-anchor", "circle-pitch-scale", "circle-pitch-alignment", "circle-stroke-width", "circle-stroke-color", "circle-stroke-opacity"],
+    layout: [],
+  },
+  symbol: {
+    paint: ["icon-opacity", "icon-color", "icon-halo-color", "icon-halo-width", "icon-halo-blur", "icon-translate", "icon-translate-anchor", "text-opacity", "text-color", "text-halo-color", "text-halo-width", "text-halo-blur", "text-translate", "text-translate-anchor"],
+    layout: [
+      "symbol-placement", "symbol-spacing", "symbol-avoid-edges",
+      "icon-allow-overlap", "icon-ignore-placement", "icon-optional", "icon-rotation-alignment", "icon-size", "icon-image", "icon-rotate", "icon-padding", "icon-keep-upright", "icon-offset", "icon-anchor", "icon-pitch-alignment",
+      "text-pitch-alignment", "text-rotation-alignment", "text-field", "text-font", "text-size", "text-max-width", "text-line-height", "text-letter-spacing", "text-justify", "text-radial-offset", "text-anchor", "text-max-angle", "text-rotate", "text-padding", "text-keep-upright", "text-transform", "text-offset", "text-allow-overlap", "text-ignore-placement", "text-optional",
+    ],
+  },
+};
+
+/** Default value used the moment a property is added via "Add property" - chosen to match the
+ * spec's own default where one exists, so adding a property is a no-op until the user actually
+ * changes it, not a surprise visual change. Array-valued defaults are deliberately non-empty
+ * (e.g. line-dasharray) since the spec has no "identity" dasharray - adding it always does
+ * something, same as flipping fill-antialias off would. fill-outline-color is handled specially
+ * in the add handler (defaults to the layer's own fill-color) rather than listed here. */
+const DEFAULT_PROPERTY_VALUES = {
+  "fill-antialias": true,
+  "fill-opacity": 1,
+  "fill-color": "#000000",
+  "fill-translate": [0, 0],
+  "fill-translate-anchor": "map",
+  "fill-pattern": "",
+  "line-opacity": 1,
+  "line-color": "#000000",
+  "line-width": 1,
+  "line-offset": 0,
+  "line-cap": "butt",
+  "line-join": "miter",
+  "line-translate": [0, 0],
+  "line-translate-anchor": "map",
+  "line-gap-width": 0,
+  "line-blur": 0,
+  "line-dasharray": [2, 2],
+  "line-pattern": "",
+  "line-miter-limit": 2,
+  "line-round-limit": 1.05,
+  "circle-radius": 5,
+  "circle-color": "#000000",
+  "circle-blur": 0,
+  "circle-opacity": 1,
+  "circle-stroke-width": 0,
+  "circle-stroke-color": "#000000",
+  "circle-translate": [0, 0],
+  "circle-translate-anchor": "map",
+  "circle-pitch-scale": "map",
+  "circle-pitch-alignment": "viewport",
+  "circle-stroke-opacity": 1,
+  "symbol-placement": "point",
+  "symbol-spacing": 250,
+  "symbol-avoid-edges": false,
+  "icon-opacity": 1,
+  "icon-color": "#000000",
+  "icon-allow-overlap": false,
+  "icon-ignore-placement": false,
+  "icon-optional": false,
+  "icon-rotation-alignment": "auto",
+  "icon-size": 1,
+  "icon-image": "",
+  "icon-rotate": 0,
+  "icon-padding": 2,
+  "icon-keep-upright": true,
+  "icon-anchor": "center",
+  "icon-pitch-alignment": "auto",
+  "icon-halo-color": "rgba(0, 0, 0, 0)",
+  "icon-halo-width": 0,
+  "icon-halo-blur": 0,
+  "icon-translate": [0, 0],
+  "icon-translate-anchor": "map",
+  "icon-offset": [0, 0],
+  "text-opacity": 1,
+  "text-color": "#000000",
+  "text-halo-color": "rgba(0, 0, 0, 0)",
+  "text-halo-width": 0,
+  "text-rotation-alignment": "auto",
+  "text-field": "",
+  "text-size": 16,
+  "text-letter-spacing": 0,
+  "text-justify": "center",
+  "text-anchor": "center",
+  "text-allow-overlap": false,
+  "text-optional": false,
+  "text-pitch-alignment": "auto",
+  "text-max-width": 10,
+  "text-line-height": 1.2,
+  "text-radial-offset": 0,
+  "text-max-angle": 45,
+  "text-rotate": 0,
+  "text-padding": 2,
+  "text-keep-upright": true,
+  "text-transform": "none",
+  "text-offset": [0, 0],
+  "text-ignore-placement": false,
+  "text-halo-blur": 0,
+  "text-translate": [0, 0],
+  "text-translate-anchor": "map",
+  "text-font": ["Open Sans Regular"],
 };
 
 /** Parses a MapLibre color VALUE (not a full expression) into {hex, alpha}, or null if it isn't a
@@ -1470,7 +1648,7 @@ async function main() {
     return wrap;
   }
 
-  function renderPropertyRow(layer, kind, prop) {
+  function renderPropertyRowInner(layer, kind, prop) {
     const bucket = kind === "layout" ? layer.layout : layer.paint;
     const value = bucket[prop];
     if (value !== null && typeof value === "object") return renderRawPropertyRow(layer, kind, prop);
@@ -1482,6 +1660,96 @@ async function main() {
     if (spec.kind === "boolean") return renderBooleanRow(layer, kind, prop);
     if (spec.kind === "string") return renderStringRow(layer, kind, prop);
     return renderRawPropertyRow(layer, kind, prop);
+  }
+
+  /** Wraps renderPropertyRowInner()'s row with a small "x" in its top-right corner to remove that
+   * property entirely - the companion to "Add property" below, so adding one isn't a one-way door
+   * (the only other way back would be resetting the whole layer, losing every other edit too).
+   * Removing sets the property back to unset (MapLibre's own meaning for a paint/layout property
+   * set to undefined), not to some placeholder value. */
+  function renderPropertyRow(layer, kind, prop) {
+    const row = renderPropertyRowInner(layer, kind, prop);
+    row.classList.add("prop-row-removable");
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "prop-row-remove";
+    removeBtn.title = `Remove ${prop}`;
+    removeBtn.setAttribute("aria-label", `Remove ${prop}`);
+    removeBtn.innerHTML = REMOVE_PROPERTY_ICON;
+    removeBtn.addEventListener("click", () => {
+      const bucket = kind === "layout" ? layer.layout : layer.paint;
+      if (bucket) delete bucket[prop];
+      if (kind === "layout") map.setLayoutProperty(layer.id, prop, undefined);
+      else map.setPaintProperty(layer.id, prop, undefined);
+      markLayerChecked(layer);
+      refreshRawJson(layer);
+      renderPropertyPanel();
+    });
+    row.appendChild(removeBtn);
+    return row;
+  }
+
+  /** A dropdown of every spec-valid property for this layer's type (LAYER_TYPE_PROPERTIES) that
+   * isn't already present - picking one adds it with a sensible default (DEFAULT_PROPERTY_VALUES)
+   * and re-renders so it shows up as a normal editable row above. Answers "should users be able to
+   * add ANY spec property, not just ones UGRC's own JSON happens to already set" - yes, this is
+   * that control (e.g. line-dasharray on a line layer that's never had one). Returns null when
+   * every applicable property is already present (nothing left to add). */
+  function renderAddPropertyRow(layer) {
+    const catalog = LAYER_TYPE_PROPERTIES[layer.type];
+    if (!catalog) return null;
+    const existingPaint = new Set(Object.keys(layer.paint || {}));
+    const existingLayout = new Set(Object.keys(layer.layout || {}));
+    const availablePaint = catalog.paint.filter((p) => !existingPaint.has(p));
+    const availableLayout = catalog.layout.filter((p) => p !== "visibility" && !existingLayout.has(p));
+    if (availablePaint.length === 0 && availableLayout.length === 0) return null;
+
+    const wrap = document.createElement("div");
+    wrap.className = "prop-row add-property-row";
+    const select = document.createElement("select");
+    select.className = "prop-select";
+    select.setAttribute("aria-label", "Add property");
+    const placeholder = document.createElement("option");
+    placeholder.value = ""; placeholder.textContent = "+ Add property…"; placeholder.selected = true;
+    select.appendChild(placeholder);
+    const addGroup = (label, props, kind) => {
+      if (props.length === 0) return;
+      const group = document.createElement("optgroup");
+      group.label = label;
+      for (const prop of props) {
+        const opt = document.createElement("option");
+        opt.value = `${kind}:${prop}`;
+        opt.textContent = prop;
+        group.appendChild(opt);
+      }
+      select.appendChild(group);
+    };
+    addGroup("Paint", availablePaint, "paint");
+    addGroup("Layout", availableLayout, "layout");
+
+    select.addEventListener("change", () => {
+      if (!select.value) return;
+      const sep = select.value.indexOf(":");
+      const kind = select.value.slice(0, sep), prop = select.value.slice(sep + 1);
+      const bucket = kind === "layout" ? (layer.layout = layer.layout || {}) : (layer.paint = layer.paint || {});
+      let value;
+      if (prop === "fill-outline-color") {
+        // A nicer starting point than always defaulting to black: match the layer's own fill.
+        const fillColor = layer.paint && parseColor(layer.paint["fill-color"]);
+        value = fillColor ? fillColor.hex : "#000000";
+      } else {
+        value = DEFAULT_PROPERTY_VALUES[prop];
+        if (Array.isArray(value)) value = value.slice(); // never share the same array instance across layers/edits
+      }
+      bucket[prop] = value;
+      if (kind === "layout") map.setLayoutProperty(layer.id, prop, value);
+      else map.setPaintProperty(layer.id, prop, value);
+      markLayerChecked(layer);
+      refreshRawJson(layer);
+      renderPropertyPanel();
+    });
+    wrap.appendChild(select);
+    return wrap;
   }
 
   function collectEditableProps(layer) {
@@ -1500,8 +1768,11 @@ async function main() {
   // "+" to add a filter, swapping to a trash icon to remove it once one exists - a single header
   // action rather than a separate full-width button row, since a layer only ever has one filter
   // (add/remove are mutually exclusive states here, not a repeatable "add another" action).
-  const ADD_FILTER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
-  const REMOVE_FILTER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
+  // Lucide's exact SVG source (plus / trash) for visual consistency with the shadcn ecosystem -
+  // same convention as the theme switch's monitor/sun/moon icons.
+  const ADD_FILTER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>';
+  const REMOVE_FILTER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+  const REMOVE_PROPERTY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
 
   function renderFilterSection(layer) {
     const section = document.createElement("div");
@@ -1681,6 +1952,8 @@ async function main() {
       propBodyEl.appendChild(none);
     }
     for (const { prop, kind } of entries) propBodyEl.appendChild(renderPropertyRow(layer, kind, prop));
+    const addPropertyRow = renderAddPropertyRow(layer);
+    if (addPropertyRow) propBodyEl.appendChild(addPropertyRow);
 
     propBodyEl.appendChild(renderFilterSection(layer));
     propBodyEl.appendChild(renderZoomSection(layer));
