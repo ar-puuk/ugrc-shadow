@@ -15,7 +15,7 @@ from pathlib import Path
 
 from py_mini_racer import MiniRacer
 
-from ugrc_shadow.fetch import fetch_text
+from ugrc_styles.fetch import fetch_text
 
 PROTOMAPS_VERSION = "5.7.2"
 PROTOMAPS_BUNDLE_URL = f"https://cdn.jsdelivr.net/npm/@protomaps/basemaps@{PROTOMAPS_VERSION}/dist/basemaps.js"

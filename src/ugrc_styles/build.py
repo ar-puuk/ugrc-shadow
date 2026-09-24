@@ -1,4 +1,4 @@
-"""The build pipeline, run as `uv run ugrc-shadow`.
+"""The build pipeline, run as `uv run ugrc-styles`.
 
 A plain sequential script: for each of UGRC's 3 services, fetch live -> shadow -> write; then
 shadow each service's own icon sprite (every icon in both LiteBase's and LiteLabels' sprites is
@@ -13,10 +13,10 @@ import argparse
 import json
 from pathlib import Path
 
-from ugrc_shadow.config import load_config
-from ugrc_shadow.engine import Shadower
-from ugrc_shadow.fetch import fetch_json
-from ugrc_shadow.sprites import shadow_sprite
+from ugrc_styles.config import load_config
+from ugrc_styles.engine import Shadower
+from ugrc_styles.fetch import fetch_json
+from ugrc_styles.sprites import shadow_sprite
 
 # services whose sprite actually has icons worth shadowing (VectorHillshade declares a sprite
 # field but has zero icon layers - nothing to fix there) -> the name its shadowed sprite is
@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         "--base-url",
         default=None,
         help=(
-            "absolute base URL the site is published at (e.g. https://<user>.github.io/ugrc-shadow), "
+            "absolute base URL the site is published at (e.g. https://<user>.github.io/ugrc-styles), "
             "used to point each shadowed style's sprite at an absolute, standalone-usable URL. "
             "Defaults to a relative path, which is fine for the docs/ demo but not for someone taking "
             "a style JSON elsewhere on its own."

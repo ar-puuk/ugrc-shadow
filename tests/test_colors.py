@@ -1,4 +1,4 @@
-from ugrc_shadow.colors import fmt_color, hex_key, invert_lightness, parse_color
+from ugrc_styles.colors import fmt_color, hex_key, invert_lightness, parse_color
 
 
 def test_parse_hex6():

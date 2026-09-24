@@ -1,32 +1,34 @@
-# ugrc-shadow
+# ugrc-styles
 
-A shadow restyling of [UGRC](https://gis.utah.gov/)'s Lite vector basemap
-(`VectorHillshade`, `LiteBase`, `LiteLabels`) for [MapLibre](https://maplibre.org/).
+Alternate MapLibre styles for [UGRC](https://gis.utah.gov/)'s Lite vector basemap
+(`VectorHillshade`, `LiteBase`, `LiteLabels`), for [MapLibre](https://maplibre.org/). This repo
+is meant to hold more than one style over time; **shadow** — a dark restyling — is the first.
 
-**[Live compare demo →](https://ar-puuk.github.io/ugrc-shadow/)** <!-- update once Pages is live -->
+**[Live compare demo →](https://ar-puuk.github.io/ugrc-styles/)** <!-- update once Pages is live -->
 
 ## What this is
 
 UGRC publishes three public Esri vector-tile services that together make up their "Lite"
 basemap. This tool fetches all three **live** and rewrites their `paint` colors against a
-shadow palette, producing three standalone, MapLibre-ready shadow style JSONs — plus a
-shadowed version of the highway-shield and base-icon sprite icons, which (being raster PNGs)
-can't be recolored through paint properties alone.
+style's palette, producing three standalone, MapLibre-ready style JSONs — plus a recolored
+version of the highway-shield and base-icon sprite icons, which (being raster PNGs) can't be
+recolored through paint properties alone.
 
-The demo page swipes between UGRC's current Lite basemap and this shadow version, both rendered
-live in [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/).
+The one style implemented so far, **shadow**, is a dark restyling built from Protomaps' dark
+flavor (see below). The demo page swipes between UGRC's current Lite basemap and the shadow
+version, both rendered live in [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/).
 
 ## Where the colors come from
 
 Most of the palette isn't "inspired by" [Protomaps](https://protomaps.com/)'s dark theme in a
 loose sense — it's the literal color tokens `@protomaps/basemaps`' `namedFlavor("dark")`
-returns, fetched live at build time (see [`src/ugrc_shadow/palette.py`](src/ugrc_shadow/palette.py)).
+returns, fetched live at build time (see [`src/ugrc_styles/palette.py`](src/ugrc_styles/palette.py)).
 A handful of additional tokens UGRC's layers need that Protomaps has no equivalent for
 (hillshade shading, road-class grays, trails, transit, etc.) live in
 [`config/palette_extra.json`](config/palette_extra.json).
 
 Similarly, UGRC's own three style definitions are never vendored into this repo — every build
-fetches them fresh from UGRC's live ArcGIS endpoints (see [`src/ugrc_shadow/fetch.py`](src/ugrc_shadow/fetch.py)).
+fetches them fresh from UGRC's live ArcGIS endpoints (see [`src/ugrc_styles/fetch.py`](src/ugrc_styles/fetch.py)).
 Only the *generated shadow output* is committed, specifically so it can be used directly without
 running any code (see below).
 
@@ -43,8 +45,8 @@ UGRC's own live services are already directly usable for that.
 
 ```bash
 uv sync
-uv run ugrc-shadow                       # writes docs/styles/*.json + docs/sprites/*
-uv run ugrc-shadow --base-url https://ar-puuk.github.io/ugrc-shadow  # absolute sprite URL for publishing
+uv run ugrc-styles                       # writes docs/styles/*.json + docs/sprites/*
+uv run ugrc-styles --base-url https://ar-puuk.github.io/ugrc-styles  # absolute sprite URL for publishing
 ```
 
 Run `uv run pytest` for the unit tests (color math + rule matching).

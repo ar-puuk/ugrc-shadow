@@ -7,7 +7,7 @@ from __future__ import annotations
 import copy
 import re
 
-from ugrc_shadow.colors import fmt_color, from_hls, hex_key, parse_color, to_hls
+from ugrc_styles.colors import fmt_color, from_hls, hex_key, parse_color, to_hls
 
 TYPE_PREFIX = {
     "fill": ("fill-",),

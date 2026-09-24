@@ -9,7 +9,7 @@ from __future__ import annotations
 import requests
 
 _TIMEOUT = 30
-_HEADERS = {"User-Agent": "ugrc-shadow (+https://github.com/)"}
+_HEADERS = {"User-Agent": "ugrc-styles (+https://github.com/)"}
 
 
 def fetch_json(url: str) -> dict:

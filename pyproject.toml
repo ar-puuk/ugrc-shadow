@@ -1,7 +1,7 @@
 [project]
-name = "ugrc-shadow"
+name = "ugrc-styles"
 version = "0.1.0"
-description = "A shadow restyling of UGRC's Lite vector basemap for MapLibre."
+description = "Alternate MapLibre styles for UGRC's Lite vector basemap."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-ugrc-shadow = "ugrc_shadow.build:main"
+ugrc-styles = "ugrc_styles.build:main"
 
 [dependency-groups]
 dev = [
@@ -25,7 +25,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ugrc_shadow"]
+packages = ["src/ugrc_styles"]
 
 [tool.ruff]
 line-length = 100

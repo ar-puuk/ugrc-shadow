@@ -21,8 +21,8 @@ import io
 import requests
 from PIL import Image
 
-from ugrc_shadow.colors import invert_lightness, parse_color
-from ugrc_shadow.fetch import fetch_bytes, fetch_json
+from ugrc_styles.colors import invert_lightness, parse_color
+from ugrc_styles.fetch import fetch_bytes, fetch_json
 
 
 def shadow_sprite_image(png_bytes: bytes, recolor_regions: list[tuple[int, int, int, int, tuple[int, int, int]]] | None = None) -> bytes:

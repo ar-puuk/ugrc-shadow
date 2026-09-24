@@ -48,7 +48,7 @@
 </div>
 <header>
   <h1>UGRC Lite &mdash; original vs. shadow</h1>
-  <p>Left: UGRC's live Lite basemap. Right: <a href="https://github.com/" style="color:#fff">ugrc-shadow</a>'s shadow restyle. Drag the slider to compare.</p>
+  <p>Left: UGRC's live Lite basemap. Right: <a href="https://github.com/" style="color:#fff">ugrc-styles</a>'s shadow restyle. Drag the slider to compare.</p>
 </header>
 <footer>
   Basemap data &amp; tiles: <a href="https://gis.utah.gov/" target="_blank" rel="noopener">UGRC</a>, via Esri ArcGIS Online.
@@ -97,7 +97,7 @@ function joinUrl(base, rel) {
 
 /** A vector source's `url` points at Esri's own VectorTileServer root (both UGRC's live styles
  * and our committed shadow styles keep this Esri shape rather than a MapLibre `tiles` array - see
- * source_mode="url" in src/ugrc_shadow/engine.py's absolutize(), chosen so the shadow styles stay
+ * source_mode="url" in src/ugrc_styles/engine.py's absolutize(), chosen so the shadow styles stay
  * a structural match for hosting as ArcGIS Online Vector Tile Style items). But that endpoint's
  * own tile template is relative ("tile/{z}/{y}/{x}.pbf"), which ArcGIS's own runtime resolves
  * but MapLibre GL JS does not when it fetches a source's `url` as TileJSON - it errors with
@@ -113,7 +113,7 @@ function vectorUrlSourceToTiles(src, absUrl) {
   }
 }
 
-/** JS port of src/ugrc_shadow/engine.py's absolutize(): rewrite Esri-relative sprite/glyphs/
+/** JS port of src/ugrc_styles/engine.py's absolutize(): rewrite Esri-relative sprite/glyphs/
  * source paths into absolute, MapLibre-ready URLs. Mutates `style` in place. Needed for the
  * light side, whose sprite/glyphs/source paths come straight from UGRC's still-Esri-relative
  * root.json. */

@@ -1,4 +1,4 @@
-from ugrc_shadow.engine import Shadower
+from ugrc_styles.engine import Shadower
 
 
 def test_rule_matches_source_layer_and_type():
