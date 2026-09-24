@@ -5,301 +5,436 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UGRC Vector Map Tile Styles</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f1013'/%3E%3Cpath d='M50 8a42 42 0 000 84z' fill='%23f2b84b'/%3E%3Ccircle cx='50' cy='50' r='42' fill='none' stroke='%23272a31' stroke-width='4'/%3E%3C/svg%3E">
+<script>
+  // Applies a saved explicit theme choice before first paint, so there's no flash of the wrong
+  // theme while the deferred module script below loads. No saved choice = follow the OS/browser
+  // setting via the CSS "prefers-color-scheme" rules alone; this only ever sets the override.
+  (function () {
+    try {
+      var t = localStorage.getItem("ugrc-theme");
+      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) { /* private browsing, disabled storage, etc. - just follow the OS setting */ }
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
 <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.css">
 <style>
+  /* shadcn/ui's own "zinc" theme values (light below, dark further down), with --primary/--ring
+     overridden to this site's amber/blue brand accents - the common "neutral base + one brand
+     accent" pattern most real shadcn-based apps use rather than the fully neutral default. Tokens
+     are bare "H S% L%" triplets (no hsl() wrapper) so any usage can add an alpha channel via
+     hsl(var(--x) / 0.5) without a second variable. */
   :root {
-    --accent: #f2b84b;
-    --accent-2: #6ea8fe;
-    --danger: #f26b6b;
-    --glass-bg: rgba(15, 16, 20, .68);
-    --glass-border: rgba(255, 255, 255, .09);
-    --text: #f4f5f7;
-    --text-dim: #a9adb6;
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 39 87% 62%;
+    --primary-foreground: 240 10% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 217 91% 72%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --radius: 0.5rem;
   }
+  /* Dark mode: follows the OS/browser by default (prefers-color-scheme); an explicit
+     data-theme="light"/"dark" from the toggle button below wins over that in either direction.
+     CSS can't "OR" a media condition with an attribute selector in one rule, so the same dark
+     values are declared twice - once gated on the media query (skipped if data-theme="light" is
+     forcing light), once gated on data-theme="dark" (wins regardless of the OS setting). */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --background: 240 10% 3.9%;
+      --foreground: 0 0% 98%;
+      --card: 240 6% 7.5%;
+      --card-foreground: 0 0% 98%;
+      --popover: 240 6% 9%;
+      --popover-foreground: 0 0% 98%;
+      --primary: 39 87% 62%;
+      --primary-foreground: 240 10% 10%;
+      --muted: 240 3.7% 15.9%;
+      --muted-foreground: 240 5% 64.9%;
+      --border: 240 3.7% 15.9%;
+      --input: 240 3.7% 18%;
+      --ring: 217 91% 72%;
+      --destructive: 0 62.8% 40%;
+      --destructive-foreground: 0 0% 98%;
+    }
+  }
+  :root[data-theme="dark"] {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 6% 7.5%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 6% 9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 39 87% 62%;
+    --primary-foreground: 240 10% 10%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 18%;
+    --ring: 217 91% 72%;
+    --destructive: 0 62.8% 40%;
+    --destructive-foreground: 0 0% 98%;
+  }
+
   * { box-sizing: border-box; }
   html, body {
-    margin: 0; height: 100%; overflow: hidden; background: #0d0e10; color: var(--text);
+    margin: 0; height: 100%; overflow: hidden;
+    background: hsl(var(--background)); color: hsl(var(--foreground));
     font: 14px/1.4 "Inter", system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   button, input, select, textarea { font: inherit; color: inherit; }
-
-  .glass {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-top-color: rgba(255, 255, 255, .18);
-    backdrop-filter: blur(16px) saturate(140%);
-    -webkit-backdrop-filter: blur(16px) saturate(140%);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
-  }
 
   .app { display: flex; flex-direction: column; height: 100%; }
 
   header {
     display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px;
     padding: 10px 16px;
-    border-bottom: 1px solid var(--glass-border);
+    background: hsl(var(--card));
+    border-bottom: 1px solid hsl(var(--border));
     z-index: 5;
   }
   .brand { margin-right: auto; display: flex; align-items: center; gap: 7px; }
   .brand-dot {
     width: 9px; height: 9px; flex: none; border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    box-shadow: 0 0 8px rgba(242, 184, 75, .55);
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--ring)));
+    box-shadow: 0 0 8px hsl(var(--primary) / 0.55);
   }
   .brand h1 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: .1px; }
-  .divider { align-self: stretch; min-height: 22px; width: 1px; background: rgba(255, 255, 255, .12); flex: none; }
+  .divider { align-self: stretch; min-height: 22px; width: 1px; background: hsl(var(--border)); flex: none; }
 
-  /* Same custom-combobox pattern as index.html's picker - see docs/assets/dropdown.js. */
+  /* Same custom-combobox pattern as index.html's picker - see docs/assets/dropdown.js. Modeled on
+     shadcn's Select: a bordered trigger matching Input, a popover menu with a checkmark-style dot
+     for the selected row instead of a background fill (shadcn uses an actual check icon; a small
+     accent dot reads the same way without adding an inline svg per row here). */
   .dd { position: relative; }
   .dd-button {
     display: flex; align-items: center; gap: 8px;
     font-size: 13px; font-weight: 500;
     width: 10em;
     padding: 6px 8px 6px 10px;
-    border: 1px solid transparent; border-radius: 7px;
-    background-color: rgba(255, 255, 255, .05);
+    border: 1px solid hsl(var(--input)); border-radius: var(--radius);
+    background: hsl(var(--background));
     cursor: pointer;
-    transition: background-color .15s ease, border-color .15s ease;
+    transition: border-color .15s ease, box-shadow .15s ease;
   }
   .dd-button-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dd-chevron { width: 10px; height: 6px; flex: none; margin-left: auto; color: var(--text-dim); transition: transform .15s ease; }
-  .dd-button:hover { background-color: rgba(255, 255, 255, .1); }
+  .dd-chevron { width: 10px; height: 6px; flex: none; margin-left: auto; color: hsl(var(--muted-foreground)); transition: transform .15s ease; }
+  .dd-button:hover { background: hsl(var(--muted)); }
   .dd-button:focus-visible {
-    outline: none; border-color: var(--accent-2);
-    background-color: rgba(255, 255, 255, .1);
-    box-shadow: 0 0 0 3px rgba(110, 168, 254, .2);
+    outline: none; border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25);
   }
   .dd-button[aria-expanded="true"] .dd-chevron { transform: rotate(180deg); }
   .dd-menu {
     position: absolute; top: calc(100% + 6px); left: 0; z-index: 10;
     margin: 0; padding: 5px; list-style: none;
     min-width: 100%; width: max-content; max-width: 280px; max-height: 60vh; overflow-y: auto;
-    background: #17181d; border: 1px solid rgba(255, 255, 255, .1); border-radius: 10px;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
+    background: hsl(var(--popover)); border: 1px solid hsl(var(--border)); border-radius: var(--radius);
+    box-shadow: 0 4px 6px hsl(var(--foreground) / 0.05), 0 10px 24px hsl(var(--foreground) / 0.12);
   }
   .dd-menu:focus { outline: none; }
-  .dd-option { display: flex; align-items: flex-start; gap: 8px; padding: 7px 9px; border-radius: 6px; cursor: pointer; }
+  .dd-option {
+    display: flex; align-items: flex-start; gap: 8px; padding: 7px 9px;
+    border-radius: calc(var(--radius) - 2px); cursor: pointer;
+  }
   .dd-option-dot {
     width: 6px; height: 6px; margin-top: 5px; flex: none; border-radius: 50%;
-    background: var(--accent-2); opacity: 0; transition: opacity .1s ease;
+    background: hsl(var(--ring)); opacity: 0; transition: opacity .1s ease;
   }
   .dd-option.is-selected .dd-option-dot { opacity: 1; }
   .dd-option-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-  .dd-option-label { font-size: 13px; font-weight: 500; color: var(--text); }
-  .dd-option.is-selected .dd-option-label { color: var(--accent-2); }
+  .dd-option-label { font-size: 13px; font-weight: 500; color: hsl(var(--popover-foreground)); }
+  .dd-option.is-selected .dd-option-label { color: hsl(var(--ring)); }
   .dd-option-desc {
-    font-size: 11px; font-weight: 400; color: var(--text-dim); line-height: 1.3;
+    font-size: 11px; font-weight: 400; color: hsl(var(--muted-foreground)); line-height: 1.3;
     overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   }
-  .dd-option.is-active { background: rgba(255, 255, 255, .08); }
+  .dd-option.is-active { background: hsl(var(--muted)); }
 
+  /* shadcn Button, "outline"-ish variant by default (border + subtle fill) with .btn-primary for
+     the "default" (solid) variant. */
   .btn {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 12px; border-radius: 7px; border: 1px solid var(--glass-border);
-    background: rgba(255, 255, 255, .05); color: var(--text);
+    padding: 6px 12px; border-radius: var(--radius); border: 1px solid hsl(var(--border));
+    background: hsl(var(--background)); color: hsl(var(--foreground));
     font-size: 13px; font-weight: 500; cursor: pointer;
-    transition: background-color .15s ease;
+    transition: background-color .15s ease, border-color .15s ease;
   }
-  .btn:hover:not(:disabled) { background: rgba(255, 255, 255, .1); }
-  .btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
-  .btn:disabled { opacity: .4; cursor: not-allowed; }
-  .btn-primary { background: var(--accent); color: #14151a; border-color: transparent; }
-  .btn-primary:hover:not(:disabled) { background: #f6c563; }
+  .btn:hover:not(:disabled) { background: hsl(var(--muted)); }
+  .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: transparent; }
+  .btn-primary:hover:not(:disabled) { background: hsl(var(--primary) / 0.9); }
   .icon-btn {
     display: flex; align-items: center; justify-content: center;
     width: 30px; height: 30px; flex: none; border-radius: 50%; border: none;
-    background: transparent; color: var(--text-dim); cursor: pointer; text-decoration: none;
+    background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; text-decoration: none;
   }
   .icon-btn svg { width: 15px; height: 15px; }
-  .icon-btn:hover { background: rgba(255, 255, 255, .1); color: var(--text); }
+  .icon-btn:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+  .icon-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
 
   main { flex: 1; display: flex; min-height: 0; }
 
   aside {
     display: flex; flex-direction: column;
     width: 300px; flex: none;
-    border-right: 1px solid var(--glass-border);
+    background: hsl(var(--card));
+    border-right: 1px solid hsl(var(--border));
   }
-  aside.right { border-right: none; border-left: 1px solid var(--glass-border); }
+  aside.right { border-right: none; border-left: 1px solid hsl(var(--border)); }
 
   .panel-head {
-    padding: 10px 12px; border-bottom: 1px solid var(--glass-border);
+    padding: 10px 12px; border-bottom: 1px solid hsl(var(--border));
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
-  .panel-head h2 { margin: 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); }
+  .panel-head h2 { margin: 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: hsl(var(--muted-foreground)); }
   .search-input {
-    width: 100%; padding: 7px 10px; border-radius: 7px; border: 1px solid var(--glass-border);
-    background: rgba(255, 255, 255, .05); color: var(--text); font-size: 13px;
+    width: 100%; padding: 7px 10px; border-radius: var(--radius); border: 1px solid hsl(var(--input));
+    background: hsl(var(--background)); color: hsl(var(--foreground)); font-size: 13px;
   }
-  .search-input::placeholder { color: var(--text-dim); }
+  .search-input::placeholder { color: hsl(var(--muted-foreground)); }
 
   #layer-list { flex: 1; overflow-y: auto; }
   .service-header {
     display: flex; align-items: center; gap: 8px; width: 100%;
-    padding: 8px 10px; border: none; border-bottom: 1px solid rgba(255, 255, 255, .06);
-    background: rgba(255, 255, 255, .03); color: var(--text);
+    padding: 8px 10px; border: none; border-bottom: 1px solid hsl(var(--border));
+    background: hsl(var(--muted) / 0.5); color: hsl(var(--foreground));
     font-size: 12px; font-weight: 600; cursor: pointer; text-align: left;
   }
-  .service-header:hover { background: rgba(255, 255, 255, .07); }
-  .service-header:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
-  .service-chevron { width: 1em; flex: none; color: var(--text-dim); }
+  .service-header:hover { background: hsl(var(--muted)); }
+  .service-header:focus-visible { outline: none; box-shadow: inset 0 0 0 2px hsl(var(--ring)); }
+  .service-chevron { width: 1em; flex: none; color: hsl(var(--muted-foreground)); }
   .service-name { flex: 1 1 auto; }
-  .service-count { flex: none; font-size: 10.5px; font-weight: 500; color: var(--text-dim); }
+  .service-count { flex: none; font-size: 10.5px; font-weight: 500; color: hsl(var(--muted-foreground)); }
   .group-body { padding-left: 12px; } /* compounds through nesting - deeper groups indent further */
   .group-header {
     display: flex; align-items: center; gap: 8px; width: 100%;
-    padding: 6px 10px 6px 8px; border: none; border-bottom: 1px solid rgba(255, 255, 255, .04);
-    background: transparent; color: var(--text-dim);
+    padding: 6px 10px 6px 8px; border: none; border-bottom: 1px solid hsl(var(--border) / 0.6);
+    background: transparent; color: hsl(var(--muted-foreground));
     font-size: 11.5px; font-weight: 600; cursor: pointer; text-align: left;
   }
-  .group-header:hover { background: rgba(255, 255, 255, .05); color: var(--text); }
-  .group-header:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+  .group-header:hover { background: hsl(var(--muted) / 0.7); color: hsl(var(--foreground)); }
+  .group-header:focus-visible { outline: none; box-shadow: inset 0 0 0 2px hsl(var(--ring)); }
   .group-chevron { width: 1em; flex: none; }
   .group-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .group-count { flex: none; font-size: 10px; }
   .layer-row {
     display: flex; align-items: center; gap: 8px;
-    padding: 6px 10px; cursor: pointer; border-bottom: 1px solid rgba(255, 255, 255, .04);
+    padding: 6px 10px; cursor: pointer; border-bottom: 1px solid hsl(var(--border) / 0.5);
   }
-  .layer-row:hover { background: rgba(255, 255, 255, .05); }
-  .layer-row.is-selected { background: rgba(110, 168, 254, .15); }
+  .layer-row:hover { background: hsl(var(--muted) / 0.6); }
+  .layer-row.is-selected { background: hsl(var(--ring) / 0.15); }
   .layer-row.is-dragging { opacity: .4; }
-  .layer-row.drag-over { box-shadow: inset 0 2px 0 var(--accent-2); }
+  .layer-row.drag-over { box-shadow: inset 0 2px 0 hsl(var(--ring)); }
   .layer-row input[type=checkbox] { flex: none; }
-  .drag-handle { flex: none; color: var(--text-dim); font-size: 12px; line-height: 1; cursor: grab; }
+  .drag-handle { flex: none; color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 1; cursor: grab; }
   .layer-tag {
     flex: none; font-size: 9px; font-weight: 700; letter-spacing: .03em;
-    padding: 2px 5px; border-radius: 4px; color: var(--text-dim);
-    background: rgba(255, 255, 255, .06);
+    padding: 2px 5px; border-radius: calc(var(--radius) - 3px); color: hsl(var(--muted-foreground));
+    background: hsl(var(--muted));
   }
   .layer-id { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
-  .layer-id.is-hidden-layer { color: var(--text-dim); text-decoration: line-through; }
-  .layer-swatch { flex: none; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255, 255, 255, .25); }
-  #layer-empty { padding: 16px 12px; color: var(--text-dim); font-size: 12.5px; }
+  .layer-id.is-hidden-layer { color: hsl(var(--muted-foreground)); text-decoration: line-through; }
+  .layer-swatch { flex: none; width: 12px; height: 12px; border-radius: 3px; border: 1px solid hsl(var(--border)); }
+  #layer-empty { padding: 16px 12px; color: hsl(var(--muted-foreground)); font-size: 12.5px; }
 
   #map-wrap { flex: 1; position: relative; min-width: 0; }
   #map { position: absolute; inset: 0; }
 
   #prop-body { flex: 1; overflow-y: auto; padding: 12px; }
-  .prop-empty { color: var(--text-dim); font-size: 13px; }
+  .prop-empty { color: hsl(var(--muted-foreground)); font-size: 13px; }
   .prop-layer-id { font-size: 13px; font-weight: 600; word-break: break-word; margin: 0 0 2px; }
-  .prop-layer-type { font-size: 11px; color: var(--text-dim); margin: 0 0 14px; }
+  .prop-layer-type { font-size: 11px; color: hsl(var(--muted-foreground)); margin: 0 0 14px; }
   .prop-row { margin-bottom: 14px; }
-  .prop-row label { display: block; font-size: 11.5px; color: var(--text-dim); margin-bottom: 5px; }
+  .prop-row label { display: block; font-size: 11.5px; color: hsl(var(--muted-foreground)); margin-bottom: 5px; }
   .color-row { display: flex; align-items: center; gap: 8px; }
   .color-row input[type=color] {
-    width: 30px; height: 30px; padding: 0; border: 1px solid var(--glass-border); border-radius: 6px;
+    width: 30px; height: 30px; padding: 0; border: 1px solid hsl(var(--input)); border-radius: calc(var(--radius) - 2px);
     background: none; cursor: pointer;
   }
   .color-row input[type=text] {
-    flex: 1 1 auto; min-width: 0; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--glass-border);
-    background: rgba(255, 255, 255, .05); color: var(--text); font-size: 12.5px; font-family: monospace;
+    flex: 1 1 auto; min-width: 0; padding: 6px 8px; border-radius: calc(var(--radius) - 2px); border: 1px solid hsl(var(--input));
+    background: hsl(var(--background)); color: hsl(var(--foreground)); font-size: 12.5px; font-family: monospace;
   }
   .alpha-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
   .alpha-row input[type=range] { flex: 1 1 auto; }
-  .alpha-row output { flex: none; width: 3em; text-align: right; font-size: 11.5px; color: var(--text-dim); font-family: monospace; }
+  .alpha-row output { flex: none; width: 3em; text-align: right; font-size: 11.5px; color: hsl(var(--muted-foreground)); font-family: monospace; }
   .number-row { display: flex; align-items: center; gap: 8px; }
   .number-row input[type=range] { flex: 1 1 auto; }
-  .number-row output { flex: none; width: 3em; text-align: right; font-size: 11.5px; color: var(--text-dim); font-family: monospace; }
+  .number-row output { flex: none; width: 3em; text-align: right; font-size: 11.5px; color: hsl(var(--muted-foreground)); font-family: monospace; }
   .prop-select, .prop-text-input {
-    width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--glass-border);
-    background: rgba(255, 255, 255, .05); color: var(--text); font-size: 12.5px;
+    width: 100%; padding: 6px 8px; border-radius: calc(var(--radius) - 2px); border: 1px solid hsl(var(--input));
+    background: hsl(var(--background)); color: hsl(var(--foreground)); font-size: 12.5px;
   }
   .prop-text-input { font-family: monospace; }
   .checkbox-label { display: flex !important; align-items: center; gap: 6px; cursor: pointer; }
   .raw-prop-input {
-    width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--glass-border);
-    background: rgba(255, 255, 255, .05); color: var(--text); font-size: 11.5px; font-family: monospace;
+    width: 100%; padding: 6px 8px; border-radius: calc(var(--radius) - 2px); border: 1px solid hsl(var(--input));
+    background: hsl(var(--background)); color: hsl(var(--foreground)); font-size: 11.5px; font-family: monospace;
     resize: vertical;
   }
-  .raw-prop-error { font-size: 11px; color: var(--danger); margin-top: 4px; }
-  .prop-section { margin: 18px 0 14px; padding-top: 14px; border-top: 1px solid var(--glass-border); }
-  .prop-section-title { margin: 0 0 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); }
+  .raw-prop-error { font-size: 11px; color: hsl(var(--destructive)); margin-top: 4px; }
+  .prop-section { margin: 18px 0 14px; padding-top: 14px; border-top: 1px solid hsl(var(--border)); }
+  .prop-section-title { margin: 0 0 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: hsl(var(--muted-foreground)); }
   .filter-row { display: flex; gap: 6px; }
   .filter-row .prop-select { flex: 0 0 4.5em; }
   .filter-row .filter-field { flex: 1 1 auto; }
   .filter-row .filter-value { flex: 1 1 auto; }
   .zoom-row { display: flex; align-items: center; gap: 6px; }
-  .zoom-row label { font-size: 11.5px; color: var(--text-dim); }
+  .zoom-row label { font-size: 11.5px; color: hsl(var(--muted-foreground)); }
   .zoom-row .zoom-input { width: 5em; flex: none; }
   .prop-actions { display: flex; gap: 8px; margin: 16px 0; }
-  details.raw-json summary { cursor: pointer; font-size: 11.5px; color: var(--text-dim); margin-bottom: 6px; }
+  details.raw-json summary { cursor: pointer; font-size: 11.5px; color: hsl(var(--muted-foreground)); margin-bottom: 6px; }
   .raw-json pre {
-    margin: 0; padding: 8px; border-radius: 6px; background: rgba(0, 0, 0, .3);
+    margin: 0; padding: 8px; border-radius: calc(var(--radius) - 2px); background: hsl(var(--muted));
+    color: hsl(var(--foreground));
     font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow-y: auto;
+  }
+
+  /* Search/select/text/raw-prop inputs above all share this focus treatment. */
+  .search-input:focus-visible, .prop-select:focus-visible, .prop-text-input:focus-visible,
+  .raw-prop-input:focus-visible, select:focus-visible, .color-row input[type=text]:focus-visible {
+    outline: none; border-color: hsl(var(--ring)); box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25);
   }
 
   #status {
     position: absolute; z-index: 6; top: 50%; left: 50%; transform: translate(-50%, -50%);
     display: flex; align-items: center; gap: 10px;
-    padding: 12px 18px; border-radius: 12px;
-    font-size: 13px; font-weight: 500; color: var(--text);
+    padding: 12px 18px; border-radius: var(--radius);
+    font-size: 13px; font-weight: 500; color: hsl(var(--popover-foreground));
+    background: hsl(var(--popover)); border: 1px solid hsl(var(--border));
+    box-shadow: 0 4px 6px hsl(var(--foreground) / 0.05), 0 10px 24px hsl(var(--foreground) / 0.12);
   }
   #status[hidden] { display: none; }
   .spinner {
     width: 14px; height: 14px; flex: none; border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, .25); border-top-color: var(--accent);
+    border: 2px solid hsl(var(--muted-foreground) / 0.3); border-top-color: hsl(var(--primary));
     animation: spin .8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 
+  /* Native form controls (checkbox/range/select) ship with no shadcn styling at all by default -
+     restyled here globally rather than per-usage, since the same three controls are reused
+     throughout the layer list and property panel. */
+  input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none;
+    width: 16px; height: 16px; margin: 0;
+    border: 1px solid hsl(var(--input)); border-radius: calc(var(--radius) - 3px);
+    background: hsl(var(--background));
+    cursor: pointer; position: relative;
+    transition: background-color .15s ease, border-color .15s ease;
+  }
+  input[type="checkbox"]:hover { border-color: hsl(var(--ring)); }
+  input[type="checkbox"]:checked { background: hsl(var(--primary)); border-color: hsl(var(--primary)); }
+  input[type="checkbox"]:checked::after {
+    content: ""; position: absolute; left: 5px; top: 2px;
+    width: 3px; height: 7px;
+    border: solid hsl(var(--primary-foreground)); border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  input[type="checkbox"]:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
+
+  input[type="range"] {
+    appearance: none; -webkit-appearance: none;
+    height: 4px; border-radius: 999px; background: hsl(var(--muted));
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: transparent; }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none; -webkit-appearance: none; margin-top: -5px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: hsl(var(--primary)); border: 2px solid hsl(var(--background));
+    box-shadow: 0 0 0 1px hsl(var(--border));
+  }
+  input[type="range"]::-moz-range-track { height: 4px; border-radius: 999px; background: hsl(var(--muted)); }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%; border: 2px solid hsl(var(--background));
+    background: hsl(var(--primary)); box-shadow: 0 0 0 1px hsl(var(--border));
+  }
+  input[type="range"]:focus-visible { outline: none; }
+  input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 1px hsl(var(--border)), 0 0 0 4px hsl(var(--ring) / 0.35); }
+  input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 1px hsl(var(--border)), 0 0 0 4px hsl(var(--ring) / 0.35); }
+
+  select {
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%23888888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 8px center; background-size: 10px 6px;
+    padding-right: 24px;
+  }
+
   /* MapLibre's zoom/compass icons are baked as dark-gray (#333) SVG data-URIs with no
-     currentColor/theming hook, so recoloring them for a dark backdrop means inverting the
-     rendered pixels rather than restyling a color property. Applies to both the single edit map's
-     own top-right control and the compare view's specially-mounted one below. */
-  .maplibregl-ctrl-icon { filter: invert(1) brightness(1.2); }
+     currentColor/theming hook. On a light card that's already readable as-is; on a dark card it
+     needs inverting to read as light-on-dark - so unlike the rest of this page's chrome (which
+     just follows the --tokens), this one genuinely branches on the page's actual light/dark state.
+     Applies to both the single edit map's own top-right control and the compare view's specially-
+     mounted one below. */
   .maplibregl-ctrl-group { background: transparent !important; box-shadow: none !important; }
   .maplibregl-ctrl-group button { background-color: transparent !important; }
-  .maplibregl-ctrl-group button:hover { background-color: rgba(255, 255, 255, .1) !important; }
-  .maplibregl-ctrl-group button + button { border-top: 1px solid rgba(255, 255, 255, .14) !important; }
+  .maplibregl-ctrl-group button:hover { background-color: hsl(var(--foreground) / 0.06) !important; }
+  .maplibregl-ctrl-group button + button { border-top: 1px solid hsl(var(--foreground) / 0.1) !important; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .maplibregl-ctrl-icon { filter: invert(1) brightness(1.2); }
+  }
+  :root[data-theme="dark"] .maplibregl-ctrl-icon { filter: invert(1) brightness(1.2); }
 
   #compare-view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-  .compare-toolbar { display: flex; justify-content: center; padding: 10px; border-bottom: 1px solid var(--glass-border); }
+  .compare-toolbar {
+    display: flex; justify-content: center; padding: 10px;
+    background: hsl(var(--card)); border-bottom: 1px solid hsl(var(--border));
+  }
   .picker-group {
     display: flex; align-items: center; gap: 6px;
-    padding: 3px; border-radius: 11px;
-    background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .07);
+    padding: 3px; border-radius: calc(var(--radius) + 4px);
+    background: hsl(var(--muted) / 0.5); border: 1px solid hsl(var(--border));
   }
   #compare-maps { position: relative; flex: 1; overflow: hidden; }
   #compare-before, #compare-after { position: absolute; inset: 0; }
   /* Mounted directly on #compare-maps (a sibling of #compare-before/#compare-after, not inside
      either), so the compare slider's clip - which only clips the two map containers - never hides
-     it. The glass treatment lives on #compare-nav-control itself rather than .maplibregl-ctrl-group,
-     so it isn't affected by the icon-inverting filter above. */
+     it. Styled on #compare-nav-control itself rather than .maplibregl-ctrl-group, so it isn't
+     affected by the icon-inverting filter above. */
   #compare-nav-control {
     position: absolute; top: 10px; right: 10px; z-index: 4;
-    border-radius: 10px; overflow: hidden;
-    background: var(--glass-bg); border: 1px solid var(--glass-border);
-    border-top-color: rgba(255, 255, 255, .18);
-    backdrop-filter: blur(16px) saturate(140%);
-    -webkit-backdrop-filter: blur(16px) saturate(140%);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+    border-radius: var(--radius); overflow: hidden;
+    background: hsl(var(--popover)); border: 1px solid hsl(var(--border));
+    box-shadow: 0 4px 6px hsl(var(--foreground) / 0.05), 0 10px 24px hsl(var(--foreground) / 0.12);
   }
-  /* maplibre-gl-compare's own divider/handle, recolored to match this page instead of the
-     library's default white/blue - only background-color/box-shadow are touched, never the
-     "background" shorthand, since the handle's arrow icon is itself a background-image the
-     library's own stylesheet sets and this must not blank out. */
+  /* maplibre-gl-compare's own divider/handle sits on the MAP, not the page chrome, so it stays a
+     fixed near-white/amber look regardless of the page's own light/dark mode - only
+     background-color/box-shadow are touched, never the "background" shorthand, since the handle's
+     arrow icon is itself a background-image the library's own stylesheet sets. */
   .maplibregl-compare { background-color: rgba(255, 255, 255, .85); box-shadow: 0 0 14px rgba(0, 0, 0, .5); }
   .maplibregl-compare .compare-swiper-vertical,
   .maplibregl-compare .compare-swiper-horizontal {
-    background-color: var(--accent);
+    background-color: hsl(var(--primary));
     box-shadow: inset 0 0 0 3px rgba(13, 14, 16, .9), 0 8px 22px rgba(0, 0, 0, .45);
   }
 
-  footer { flex: none; display: flex; justify-content: center; padding: 6px 14px; border-top: 1px solid var(--glass-border); }
-  .footer-pill { font-size: 11px; color: var(--text-dim); text-align: center; }
-  .footer-pill a { color: var(--text); text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, .3); }
-  .footer-pill a:hover { color: var(--accent-2); border-color: var(--accent-2); }
+  footer {
+    flex: none; display: flex; justify-content: center; padding: 6px 14px;
+    background: hsl(var(--card)); border-top: 1px solid hsl(var(--border));
+  }
+  .footer-pill { font-size: 11px; color: hsl(var(--muted-foreground)); text-align: center; }
+  .footer-pill a { color: hsl(var(--foreground)); text-decoration: none; border-bottom: 1px solid hsl(var(--border)); }
+  .footer-pill a:hover { color: hsl(var(--ring)); border-color: hsl(var(--ring)); }
 
   @media (max-width: 900px) {
     main { flex-direction: column; overflow-y: auto; }
-    aside { width: 100%; max-height: 40vh; border: none; border-bottom: 1px solid var(--glass-border); }
+    aside { width: 100%; max-height: 40vh; border: none; border-bottom: 1px solid hsl(var(--border)); }
     #map-wrap { min-height: 50vh; }
   }
   @media (max-width: 480px) {
@@ -310,7 +445,7 @@
 </head>
 <body>
 <div class="app">
-  <header class="glass">
+  <header>
     <div class="brand"><span class="brand-dot" aria-hidden="true"></span><h1>UGRC Vector Map Tile Styles</h1></div>
 
     <div class="dd" id="template-dd">
@@ -325,7 +460,7 @@
     <button id="compare-toggle-btn" class="btn" type="button" aria-pressed="false" disabled>Compare</button>
 
     <div class="divider" aria-hidden="true"></div>
-    <span id="changed-badge" style="font-size:12px;color:var(--text-dim);"></span>
+    <span id="changed-badge" style="font-size:12px;color:hsl(var(--muted-foreground));"></span>
     <button id="reset-all-btn" class="btn" type="button" title="Discard all edits and reload the current template">Reset all</button>
     <button id="download-3-btn" class="btn" type="button" title="VectorHillshade + LiteBase + LiteLabels, matching how UGRC hosts these">Download 3 files</button>
     <button id="download-combined-btn" class="btn btn-primary" type="button">Download combined</button>
@@ -336,6 +471,15 @@
         <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/>
       </svg>
     </a>
+    <button id="theme-toggle-btn" class="icon-btn" type="button" title="Toggle dark/light theme" aria-label="Toggle dark/light theme">
+      <svg id="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+      </svg>
+      <svg id="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>
+      </svg>
+    </button>
   </header>
 
   <main>
@@ -349,7 +493,7 @@
 
     <div id="map-wrap">
       <div id="map"></div>
-      <div id="status" class="glass">
+      <div id="status">
         <div class="spinner" aria-hidden="true"></div>
         <span id="status-text">Loading…</span>
       </div>
@@ -547,6 +691,36 @@ function loadDraft() {
 function clearDraft() {
   try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to clean up if this throws */ }
 }
+
+// Theme toggle - independent of the editor state above, so wired up immediately rather than
+// inside main()'s async init. The actual token values live in <style>; this only ever sets or
+// clears the data-theme override attribute the FOUC-prevention script in <head> also reads.
+const THEME_KEY = "ugrc-theme";
+
+function effectiveTheme() {
+  const explicit = document.documentElement.getAttribute("data-theme");
+  if (explicit) return explicit;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyThemeIcon() {
+  const dark = effectiveTheme() === "dark";
+  document.getElementById("theme-icon-sun").hidden = !dark; // clicking shows "switch to light"
+  document.getElementById("theme-icon-moon").hidden = dark; // clicking shows "switch to dark"
+}
+
+document.getElementById("theme-toggle-btn").addEventListener("click", () => {
+  const next = effectiveTheme() === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem(THEME_KEY, next); } catch { /* falls back to session-only */ }
+  applyThemeIcon();
+});
+applyThemeIcon();
+// If there's no explicit saved preference, keep the icon in sync when the OS setting itself
+// changes while the page is open (an explicit choice - `data-theme` set - overrides this).
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (!document.documentElement.getAttribute("data-theme")) applyThemeIcon();
+});
 
 async function main() {
   const statusEl = document.getElementById("status");
