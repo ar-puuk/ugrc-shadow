@@ -192,8 +192,13 @@ async function main() {
   try {
     const [lightStyle, darkStyle] = await Promise.all([buildLightStyle(), buildDarkStyle()]);
 
-    const before = new maplibregl.Map({ container: "before", style: lightStyle, center: CENTER, zoom: ZOOM });
-    const after = new maplibregl.Map({ container: "after", style: darkStyle, center: CENTER, zoom: ZOOM });
+    // MapLibre's own default attribution control is dropped: it would face the same
+    // clipped-inside-a-map-container problem the nav control had, it collides with our footer,
+    // and UGRC's "esri" source declares its attribution as the literal string "me" (seemingly a
+    // leftover on their end) - not worth solving for text that isn't real credit anyway. Real
+    // attribution (UGRC/Esri, Protomaps) is already in our own <footer> below.
+    const before = new maplibregl.Map({ container: "before", style: lightStyle, center: CENTER, zoom: ZOOM, attributionControl: false });
+    const after = new maplibregl.Map({ container: "after", style: darkStyle, center: CENTER, zoom: ZOOM, attributionControl: false });
     // A single control, shared by both maps: map.addControl() mounts a control INSIDE that
     // map's own container, which the compare slider clips to a left- or right-only region - so
     // whichever map it were attached to, the control would disappear past the slider. Instead
