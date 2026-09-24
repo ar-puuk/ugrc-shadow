@@ -38,6 +38,8 @@ PROTOMAPS_KEY_MAP: dict[str, str] = {
     "label_water": "ocean_label",
     "halo": "earth",
     "halo_water": "water",
+    "buildings": "buildings",
+    "hs_base": "earth",  # hillshade's neutral tone = the land fill it sits on
 }
 
 

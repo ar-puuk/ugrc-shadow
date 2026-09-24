@@ -27,7 +27,7 @@
     { "note": "county lines",         "match": { "source_layer": "^Counties$", "type": "line" }, "paint": { "line-color": "@boundary" } },
     { "note": "county solid bands",   "match": { "source_layer": "^Counties$", "type": "line", "paint": { "line-color": "^#[A-F][0-9A-F]" } }, "paint": { "line-color": "@boundary_halo" } },
 
-    { "note": "buildings (if present)", "match": { "source_layer": "(?i)build", "type": "fill" }, "paint": { "fill-color": { "color": "#111111", "alpha": 0.5 }, "fill-outline-color": "@road_casing" } },
+    { "note": "buildings (if present)", "match": { "source_layer": "(?i)build", "type": "fill" }, "paint": { "fill-color": { "color": "@buildings", "alpha": 0.5 }, "fill-outline-color": "@road_casing" } },
     { "note": "railroads",            "match": { "source_layer": "^Railroads$" }, "paint": { "line-color": "@rail", "icon-color": "@rail" } },
     { "note": "trails outer",         "match": { "source_layer": "^TrailsAndPathways$", "id": "/1$" }, "paint": { "line-color": "@trail_outer" } },
     { "note": "trails inner",         "match": { "source_layer": "^TrailsAndPathways$", "id": "/0$" }, "paint": { "line-color": "@trail_inner" } },
