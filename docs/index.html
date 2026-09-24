@@ -297,337 +297,16 @@
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.js"></script>
-<script>
+<script type="module">
 "use strict";
+
+import { ORIGINAL_KEY, buildOriginalStyle, buildThemeStyle, loadOptions } from "./assets/styles.js";
+import { Dropdown } from "./assets/dropdown.js";
 
 const CENTER = [-111.891, 40.761]; // Salt Lake City
 const ZOOM = 10;
-
-// UGRC's 3 original services, fetched live (never snapshotted - see README).
-const ORIGINAL_SERVICE_URLS = {
-  VectorHillshade: "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/VectorHillshade/VectorTileServer/resources/styles/root.json",
-  LiteBase:        "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteBase/VectorTileServer/resources/styles/root.json",
-  LiteLabels:      "https://tiles.arcgis.com/tiles/99lidPhWCzftIe9K/arcgis/rest/services/LiteLabels/VectorTileServer/resources/styles/root.json",
-};
-const ORIGINAL_KEY = "original";
 const DEFAULT_LEFT = ORIGINAL_KEY;
 const DEFAULT_RIGHT = "shadow";
-
-function withFormat(url) {
-  return url.includes("f=") ? url : url + (url.includes("?") ? "&" : "?") + "f=json";
-}
-
-async function fetchJson(url) {
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText} fetching ${url}`);
-  return resp.json();
-}
-
-/** The URL API percent-encodes "{" and "}" (e.g. glyphs' {fontstack}/{range} template),
- * which MapLibre then fails to recognize as tokens. Python's urljoin doesn't have this
- * problem (it does plain string joining, no re-encoding pass) - undo it here to match. */
-function joinUrl(base, rel) {
-  return new URL(rel, base).href.replace(/%7B/g, "{").replace(/%7D/g, "}");
-}
-
-/** A vector source's `url` points at Esri's own VectorTileServer root (both UGRC's live styles
- * and this repo's committed theme styles keep this Esri shape rather than a MapLibre `tiles`
- * array - see source_mode="url" in src/ugrc_styles/engine.py's absolutize(), chosen so the
- * generated styles stay a structural match for hosting as ArcGIS Online Vector Tile Style
- * items). But that endpoint's own tile template is relative ("tile/{z}/{y}/{x}.pbf"), which
- * ArcGIS's own runtime resolves but MapLibre GL JS does not when it fetches a source's `url` as
- * TileJSON - it errors with "Failed to parse URL from tile/..." - so this demo flattens it into
- * an explicit absolute `tiles` array before handing the style to MapLibre. `absUrl` must already
- * be a fully-qualified, trailing-slash URL. */
-function vectorUrlSourceToTiles(src, absUrl) {
-  if (src.type === "vector") {
-    src.tiles = [absUrl + "tile/{z}/{y}/{x}.pbf"];
-    delete src.url;
-  } else {
-    src.url = absUrl;
-  }
-}
-
-/** JS port of src/ugrc_styles/engine.py's absolutize(): rewrite Esri-relative sprite/glyphs/
- * source paths into absolute, MapLibre-ready URLs. Mutates `style` in place. Needed for
- * "original", whose sprite/glyphs/source paths come straight from UGRC's still-Esri-relative
- * root.json. */
-function absolutize(style, styleUrl) {
-  const base = styleUrl.split(/[?#]/)[0];
-  for (const key of ["sprite", "glyphs"]) {
-    if (typeof style[key] === "string") style[key] = joinUrl(base, style[key]);
-  }
-  for (const src of Object.values(style.sources || {})) {
-    if (typeof src.url === "string") {
-      let absUrl = joinUrl(base, src.url);
-      if (!absUrl.endsWith("/")) absUrl += "/";
-      vectorUrlSourceToTiles(src, absUrl);
-    }
-    if (Array.isArray(src.tiles)) {
-      src.tiles = src.tiles.map((t) => joinUrl(base, t));
-    }
-  }
-}
-
-/** A committed theme style's glyphs are already absolute (the Python build always absolutizes
- * that regardless of source_mode), but two things need resolving here before MapLibre can
- * render it:
- *
- * - `sprite` is deliberately left relative (e.g. "../sprites/base-icons-shadow"), written
- *   relative to the style JSON's OWN file location (docs/<theme>/styles/X.json - so "../sprites/"
- *   lands back in docs/<theme>/sprites/). That assumption only holds if something resolves it
- *   against the fetched file's URL. This demo fetches the JSON as plain data and hands MapLibre
- *   the resulting object (not a URL string), so MapLibre has no idea where it came from and
- *   would instead resolve a relative sprite URL against the *page's* location - one level too
- *   high, breaking every icon. So it's resolved by hand here, against `styleUrl` (the style
- *   JSON's own absolute URL). Already-absolute sprite URLs (a build run with --base-url) pass
- *   through unchanged, since `new URL(absolute, base)` ignores `base`.
- * - vector sources are deliberately left in Esri's `url` shape rather than MapLibre's `tiles`
- *   array (see vectorUrlSourceToTiles above) - so this demo has to do that one conversion itself.
- */
-function resolveThemeStyle(style, styleUrl) {
-  if (typeof style.sprite === "string") {
-    style.sprite = joinUrl(styleUrl, style.sprite);
-  }
-  for (const src of Object.values(style.sources || {})) {
-    if (typeof src.url === "string") {
-      const absUrl = src.url.endsWith("/") ? src.url : src.url + "/";
-      vectorUrlSourceToTiles(src, absUrl);
-    }
-  }
-}
-
-/** JS port of the original R reference script's ugrc_merge_styles(): combine several named styles (each
- * with their own "esri" source) into one MapLibre style, namespacing sources and sprites so
- * they can coexist, and dedup layer ids. List order (Object.keys order) = bottom -> top. */
-function mergeStyles(namedStyles, { glyphsFrom } = {}) {
-  const names = Object.keys(namedStyles);
-  const defaultSprite = names.includes(glyphsFrom) ? glyphsFrom : names[names.length - 1];
-
-  const sources = {};
-  const layers = [];
-  const sprites = [];
-  const idCounts = new Map();
-
-  for (const name of names) {
-    const st = namedStyles[name];
-    const srcNames = Object.keys(st.sources || {});
-    const srcMap = {};
-    for (const s of srcNames) {
-      srcMap[s] = srcNames.length === 1 ? name : `${name}_${s}`;
-      sources[srcMap[s]] = st.sources[s];
-    }
-    const isDefault = name === defaultSprite;
-    if (st.sprite) sprites.push({ id: isDefault ? "default" : name, url: st.sprite });
-
-    for (const ly of st.layers || []) {
-      const copy = JSON.parse(JSON.stringify(ly));
-      if (copy.source) copy.source = srcMap[copy.source];
-      const icon = copy.layout && copy.layout["icon-image"];
-      if (!isDefault && typeof icon === "string" && icon) {
-        copy.layout["icon-image"] = `${name}:${icon}`;
-      }
-      const n = idCounts.get(copy.id) || 0;
-      idCounts.set(copy.id, n + 1);
-      if (n > 0) copy.id = `${copy.id}__${n}`;
-      layers.push(copy);
-    }
-  }
-
-  sprites.sort((a, b) => (a.id === "default" ? -1 : 1) - (b.id === "default" ? -1 : 1));
-
-  return {
-    version: 8,
-    name: "UGRC merged",
-    sprite: sprites,
-    glyphs: namedStyles[defaultSprite].glyphs,
-    sources,
-    layers,
-  };
-}
-
-async function buildOriginalStyle() {
-  const styles = {};
-  for (const [name, url] of Object.entries(ORIGINAL_SERVICE_URLS)) {
-    const style = await fetchJson(withFormat(url));
-    absolutize(style, url);
-    styles[name] = style;
-  }
-  return mergeStyles(styles, { glyphsFrom: "LiteLabels" });
-}
-
-async function buildThemeStyle(themeManifest) {
-  const styles = {};
-  for (const [name, relPath] of Object.entries(themeManifest.styles)) {
-    const styleUrl = new URL(relPath, document.baseURI).href;
-    const style = await fetchJson(relPath);
-    resolveThemeStyle(style, styleUrl);
-    styles[name] = style;
-  }
-  return mergeStyles(styles, { glyphsFrom: "LiteLabels" });
-}
-
-/** Every option a picker can offer: "original" (UGRC's live basemap) plus one entry per theme
- * from docs/themes.json - built once at load so left/right pickers, defaults, and the actual
- * style builders all agree on the same list. Each option's `description` is rendered directly
- * in the Dropdown's menu (see below) - a bit of free, unobtrusive context on what each theme
- * actually is, straight from the same text the README and build already carry. */
-async function loadOptions() {
-  const themes = await fetchJson("themes.json");
-  const options = {
-    [ORIGINAL_KEY]: {
-      label: "Lite",
-      description: "UGRC's original Lite basemap, fetched live and unmodified from their ArcGIS services.",
-    },
-  };
-  for (const [name, manifest] of Object.entries(themes)) {
-    options[name] = { label: manifest.label, description: manifest.description, manifest };
-  }
-  return options;
-}
-
-/** All currently-open dropdowns close when any other one opens or the page is clicked outside
- * of them - tracked here rather than per-instance so opening #2 doesn't need to know #1 exists. */
-const openDropdowns = new Set();
-document.addEventListener("click", (e) => {
-  for (const dd of [...openDropdowns]) {
-    if (!dd.container.contains(e.target)) dd.close();
-  }
-});
-
-/** A combobox built from a <button> + absolutely-positioned <ul role="listbox"> (see the .dd*
- * CSS) instead of a native <select> - the popped-open list of a real <select> is native OS/
- * browser chrome that CSS can barely touch (background-color/color, a little padding in
- * Chromium - no rounded corners, no shadow, no per-row hover, no per-row description text).
- * Rendering the menu in our own DOM removes that ceiling. Exposes just enough of a <select>'s
- * shape (a `.value` getter/setter, a "change" event) that the rest of this file barely needs to
- * know it isn't one. */
-class Dropdown extends EventTarget {
-  constructor(container) {
-    super();
-    this.container = container;
-    this.button = container.querySelector(".dd-button");
-    this.label = container.querySelector(".dd-button-label");
-    this.menu = container.querySelector(".dd-menu");
-    this.options = {};
-    this._value = null;
-    this._activeKey = null;
-
-    this.button.addEventListener("click", () => (this.open ? this.close() : this._openMenu()));
-    this.button.addEventListener("keydown", (e) => {
-      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
-        e.preventDefault();
-        this._openMenu();
-      }
-    });
-    this.menu.addEventListener("keydown", (e) => this._onMenuKeydown(e));
-  }
-
-  get open() {
-    return openDropdowns.has(this);
-  }
-
-  setOptions(options) {
-    this.options = options;
-    this.menu.innerHTML = "";
-    for (const [key, opt] of Object.entries(options)) {
-      const li = document.createElement("li");
-      li.className = "dd-option";
-      li.id = `${this.container.id}-opt-${key}`;
-      li.role = "option";
-      li.dataset.value = key;
-
-      const dot = document.createElement("span");
-      dot.className = "dd-option-dot";
-      dot.setAttribute("aria-hidden", "true");
-      li.appendChild(dot);
-
-      const text = document.createElement("span");
-      text.className = "dd-option-text";
-      const labelEl = document.createElement("span");
-      labelEl.className = "dd-option-label";
-      labelEl.textContent = opt.label;
-      text.appendChild(labelEl);
-      if (opt.description) {
-        const descEl = document.createElement("span");
-        descEl.className = "dd-option-desc";
-        descEl.textContent = opt.description;
-        text.appendChild(descEl);
-      }
-      li.appendChild(text);
-
-      li.addEventListener("click", () => {
-        this.value = key;
-        this.close();
-        this.button.focus();
-      });
-      li.addEventListener("mousemove", () => this._setActive(key));
-      this.menu.appendChild(li);
-    }
-  }
-
-  get value() {
-    return this._value;
-  }
-
-  set value(key) {
-    if (!(key in this.options)) return;
-    const changed = this._value !== key;
-    this._value = key;
-    this.label.textContent = this.options[key].label;
-    for (const li of this.menu.children) {
-      li.classList.toggle("is-selected", li.dataset.value === key);
-      li.setAttribute("aria-selected", String(li.dataset.value === key));
-    }
-    if (changed) this.dispatchEvent(new Event("change"));
-  }
-
-  _setActive(key) {
-    this._activeKey = key;
-    for (const li of this.menu.children) {
-      li.classList.toggle("is-active", li.dataset.value === key);
-    }
-    this.button.setAttribute("aria-activedescendant", `${this.container.id}-opt-${key}`);
-  }
-
-  _openMenu() {
-    for (const dd of [...openDropdowns]) if (dd !== this) dd.close();
-    openDropdowns.add(this);
-    this.menu.hidden = false;
-    this.button.setAttribute("aria-expanded", "true");
-    this._setActive(this._value);
-    this.menu.focus();
-  }
-
-  close() {
-    openDropdowns.delete(this);
-    this.menu.hidden = true;
-    this.button.setAttribute("aria-expanded", "false");
-  }
-
-  _onMenuKeydown(e) {
-    const keys = Object.keys(this.options);
-    let idx = Math.max(keys.indexOf(this._activeKey), 0);
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      this._setActive(keys[Math.min(idx + 1, keys.length - 1)]);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      this._setActive(keys[Math.max(idx - 1, 0)]);
-    } else if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      this.value = this._activeKey;
-      this.close();
-      this.button.focus();
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      this.close();
-      this.button.focus();
-    } else if (e.key === "Tab") {
-      this.close();
-    }
-  }
-}
 
 async function main() {
   const statusEl = document.getElementById("status");
@@ -642,6 +321,9 @@ async function main() {
     rightPick.value = DEFAULT_RIGHT in options ? DEFAULT_RIGHT : Object.keys(options)[0];
 
     // Cache built styles per option key so flipping a picker back and forth doesn't re-fetch.
+    // buildOriginalStyle()/buildThemeStyle() return { style, serviceOriginals } (see
+    // docs/assets/styles.js) - this page only ever renders `.style`; `serviceOriginals` exists
+    // for the editor page's 3-file export and is unused here.
     const styleCache = new Map();
     async function styleFor(key) {
       if (styleCache.has(key)) return styleCache.get(key);
@@ -651,10 +333,10 @@ async function main() {
     }
 
     const before = new maplibregl.Map({
-      container: "before", style: await styleFor(leftPick.value), center: CENTER, zoom: ZOOM, attributionControl: false,
+      container: "before", style: (await styleFor(leftPick.value)).style, center: CENTER, zoom: ZOOM, attributionControl: false,
     });
     const after = new maplibregl.Map({
-      container: "after", style: await styleFor(rightPick.value), center: CENTER, zoom: ZOOM, attributionControl: false,
+      container: "after", style: (await styleFor(rightPick.value)).style, center: CENTER, zoom: ZOOM, attributionControl: false,
     });
 
     // MapLibre's own default attribution control is dropped: it would face the same
@@ -702,7 +384,7 @@ async function main() {
       statusEl.hidden = false;
       statusText.textContent = `Loading ${options[key].label}…`;
       try {
-        map.setStyle(await styleFor(key));
+        map.setStyle((await styleFor(key)).style);
       } finally {
         statusEl.hidden = true;
       }
