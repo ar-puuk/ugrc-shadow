@@ -30,6 +30,10 @@
     { "note": "railroads",            "match": { "source_layer": "^Railroads$" }, "paint": { "line-color": "@rail", "icon-color": "@rail" } },
     { "note": "trails outer",         "match": { "source_layer": "^TrailsAndPathways$", "id": "/1$" }, "paint": { "line-color": "@trail_outer" } },
     { "note": "trails inner",         "match": { "source_layer": "^TrailsAndPathways$", "id": "/0$" }, "paint": { "line-color": "@trail_inner" } },
+    { "note": "trail dash spacing (zoom 15+ tier): UGRC bakes a dash length shorter than the line's own width (a fine stipple); Voyager's own road_path dash is 2-3x its width (open, clearly spaced ticks) - borrowed verbatim from Voyager's upper zoom stop, applied to both outer/inner so their dash cycles stay phase-aligned",
+      "match": { "source_layer": "^TrailsAndPathways$", "id": "All Trails/(0|1)$" }, "paint": { "line-dasharray": [3, 3] } },
+    { "note": "trail dash spacing (zoom 14-15 tier): Voyager's lower zoom stop for the same dash",
+      "match": { "source_layer": "^TrailsAndPathways$", "id": "All Trails_1/(0|1)$" }, "paint": { "line-dasharray": [2, 2] } },
 
     { "note": "interstates (fill): the one class kept in Voyager's bolder motorway tone - everything else below reads as one paler 'major road' family",
       "match": { "source_layer": "^Roads", "type": "line", "id": "/Interstates" },                                        "paint": { "line-color": "@road_highway" } },
