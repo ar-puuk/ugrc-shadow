@@ -7,8 +7,3 @@ __pycache__/
 .ruff_cache/
 dist/
 build/
-
-# reference-only originals (ported into src/ugrc_shadow, not carried into the repo)
-/ugrc_darken.R
-/ugrc_darken.py
-/preview_ugrc_dark.R
