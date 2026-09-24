@@ -68,26 +68,33 @@
   .brand h1 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: .1px; }
   .brand p { margin: 0; padding-left: 16px; font-size: 11px; font-weight: 500; color: var(--text-dim); }
 
-  .controls { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
-  .picker { display: flex; flex-direction: column; gap: 4px; }
-  .picker label {
-    font-size: 10px; font-weight: 600; color: var(--text-dim);
-    text-transform: uppercase; letter-spacing: .07em;
+  .divider { align-self: stretch; min-height: 24px; width: 1px; background: rgba(255, 255, 255, .12); flex: none; }
+
+  /* The two pickers + swap button are visually clustered into one segmented control (a shared
+     background/border) rather than three loose floating widgets - reads as a single "compare"
+     unit instead of unrelated form fields. */
+  .picker-group {
+    display: flex; align-items: center; gap: 2px;
+    padding: 3px; border-radius: 11px;
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .07);
   }
+  .picker { display: flex; align-items: center; gap: 6px; padding: 0 2px 0 8px; }
+  .picker-icon { width: 15px; height: 15px; flex: none; color: var(--text-dim); }
   .picker select {
     font: inherit; font-size: 13px; font-weight: 500; color: var(--text); color-scheme: dark;
     appearance: none; -webkit-appearance: none;
-    padding: 7px 30px 7px 12px; min-width: 9.5em;
-    border-radius: 9px; border: 1px solid rgba(255, 255, 255, .16);
-    background-color: rgba(255, 255, 255, .06);
+    padding: 6px 26px 6px 4px; min-width: 8.5em;
+    border: none; background-color: transparent;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9adb6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 12px center;
+    background-position: right 4px center;
+    border-radius: 7px;
     cursor: pointer;
-    transition: border-color .15s ease, background-color .15s ease;
+    transition: background-color .15s ease;
   }
-  .picker select:hover { background-color: rgba(255, 255, 255, .11); border-color: rgba(255, 255, 255, .3); }
-  .picker select:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  .picker select:hover { background-color: rgba(255, 255, 255, .08); }
+  .picker select:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
   /* The popped-open option list is native OS chrome, not something our translucent glass
      background can paint - `color-scheme: dark` above isn't consistently honored for it across
      browsers, so without this the list renders on the OS's default light listbox background
@@ -99,18 +106,19 @@
     color: var(--text);
   }
 
-  .swap-btn {
+  .swap-btn, .icon-btn {
     display: flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; flex: none;
-    border-radius: 50%; border: 1px solid rgba(255, 255, 255, .16);
-    background: rgba(255, 255, 255, .06); color: var(--text);
-    cursor: pointer;
-    transition: transform .3s cubic-bezier(.3, 1.4, .5, 1), background-color .15s ease, border-color .15s ease;
+    width: 30px; height: 30px; flex: none;
+    border-radius: 50%; border: 1px solid transparent;
+    background: transparent; color: var(--text-dim);
+    cursor: pointer; text-decoration: none;
+    transition: transform .3s cubic-bezier(.3, 1.4, .5, 1), background-color .15s ease, color .15s ease;
   }
-  .swap-btn svg { width: 15px; height: 15px; }
-  .swap-btn:hover { background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .32); color: var(--accent); }
+  .swap-btn svg, .icon-btn svg { width: 15px; height: 15px; }
+  .swap-btn:hover, .icon-btn:hover { background: rgba(255, 255, 255, .1); color: var(--text); }
   .swap-btn:active { transform: rotate(180deg) scale(.92); }
-  .swap-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  .swap-btn:focus-visible, .icon-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  .icon-btn:hover { color: var(--accent-2); }
 
   footer {
     position: absolute; bottom: 0; left: 0; right: 0; z-index: 2;
@@ -184,10 +192,13 @@
       <div class="brand-row"><span class="brand-dot" aria-hidden="true"></span><h1>UGRC Lite</h1></div>
       <p>Style compare</p>
     </div>
-    <div class="controls">
+    <div class="picker-group">
       <div class="picker">
-        <label for="left-pick">Left</label>
-        <select id="left-pick"></select>
+        <svg class="picker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="16" rx="3"/>
+          <rect x="3" y="4" width="6" height="16" rx="1" fill="currentColor" fill-opacity=".4" stroke="none"/>
+        </svg>
+        <select id="left-pick" aria-label="Left side"></select>
       </div>
       <button id="swap-btn" class="swap-btn" type="button" title="Swap sides" aria-label="Swap left and right">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -196,16 +207,24 @@
         </svg>
       </button>
       <div class="picker">
-        <label for="right-pick">Right</label>
-        <select id="right-pick"></select>
+        <svg class="picker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="16" rx="3"/>
+          <rect x="15" y="4" width="6" height="16" rx="1" fill="currentColor" fill-opacity=".4" stroke="none"/>
+        </svg>
+        <select id="right-pick" aria-label="Right side"></select>
       </div>
     </div>
+    <div class="divider" aria-hidden="true"></div>
+    <a class="icon-btn" href="https://github.com/ar-puuk/ugrc-styles" target="_blank" rel="noopener" title="View source on GitHub" aria-label="View source on GitHub">
+      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+    </a>
   </div>
 </header>
 <footer>
   <div class="footer-pill glass">
-    Basemap data &amp; tiles: <a href="https://gis.utah.gov/" target="_blank" rel="noopener">UGRC</a>, via Esri ArcGIS Online &middot;
-    Styles: <a href="https://github.com/ar-puuk/ugrc-styles" target="_blank" rel="noopener">ugrc-styles</a>
+    Basemap tiles: <a href="https://gis.utah.gov/" target="_blank" rel="noopener">UGRC</a> via Esri ArcGIS Online
   </div>
 </footer>
 <div id="status" class="glass">
@@ -387,12 +406,19 @@ async function buildThemeStyle(themeManifest) {
 
 /** Every option a picker can offer: "original" (UGRC's live basemap) plus one entry per theme
  * from docs/themes.json - built once at load so left/right pickers, defaults, and the actual
- * style builders all agree on the same list. */
+ * style builders all agree on the same list. Each option's `description` surfaces as a native
+ * tooltip (see populatePicker/updateSelectTitle) - a bit of free, unobtrusive context on what
+ * each theme actually is, straight from the same text the README and build already carry. */
 async function loadOptions() {
   const themes = await fetchJson("themes.json");
-  const options = { [ORIGINAL_KEY]: { label: "UGRC Original (live)" } };
+  const options = {
+    [ORIGINAL_KEY]: {
+      label: "UGRC Original (live)",
+      description: "UGRC's live Lite basemap, fetched directly from their ArcGIS services.",
+    },
+  };
   for (const [name, manifest] of Object.entries(themes)) {
-    options[name] = { label: manifest.label, manifest };
+    options[name] = { label: manifest.label, description: manifest.description, manifest };
   }
   return options;
 }
@@ -403,9 +429,18 @@ function populatePicker(select, options, selected) {
     const el = document.createElement("option");
     el.value = key;
     el.textContent = opt.label;
+    if (opt.description) el.title = opt.description; // shows on hover while the list is open
     select.appendChild(el);
   }
   select.value = selected;
+  updateSelectTitle(select, options);
+}
+
+/** Keeps the closed <select>'s own tooltip in sync with whichever option is currently chosen -
+ * option-level titles (above) only show while the dropdown is actually open. */
+function updateSelectTitle(select, options) {
+  const opt = options[select.value];
+  select.title = (opt && opt.description) || (opt && opt.label) || "";
 }
 
 async function main() {
@@ -484,14 +519,22 @@ async function main() {
         statusEl.hidden = true;
       }
     }
-    leftPick.addEventListener("change", () => swap(before, leftPick.value));
-    rightPick.addEventListener("change", () => swap(after, rightPick.value));
+    leftPick.addEventListener("change", () => {
+      updateSelectTitle(leftPick, options);
+      swap(before, leftPick.value);
+    });
+    rightPick.addEventListener("change", () => {
+      updateSelectTitle(rightPick, options);
+      swap(after, rightPick.value);
+    });
 
     document.getElementById("swap-btn").addEventListener("click", () => {
       const l = leftPick.value, r = rightPick.value;
       if (l === r) return;
       leftPick.value = r;
       rightPick.value = l;
+      updateSelectTitle(leftPick, options);
+      updateSelectTitle(rightPick, options);
       swap(before, leftPick.value);
       swap(after, rightPick.value);
     });
