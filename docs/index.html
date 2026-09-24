@@ -458,6 +458,10 @@
   .prop-section-action:hover { background: hsl(var(--muted)); border-color: hsl(var(--ring)); }
   .prop-section-action:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
   .prop-section-action svg { width: 18px; height: 18px; stroke-width: 3; }
+  /* Sized down from the shared 18px so its rendered ink (14/24 of its own viewBox) matches
+     .prop-row-remove's x glyph (12/24 of its viewBox) at 18px - see ADD_FILTER_ICON's comment.
+     18 * (12/24) = 9px of target ink; 9 / (14/24) = 15.43px renders that same ink for this icon. */
+  .prop-section-action svg.icon-plus { width: 15.5px; height: 15.5px; }
   .filter-row { display: flex; gap: 6px; }
   .filter-row .prop-select { flex: 0 0 4.5em; }
   .filter-row .filter-field { flex: 1 1 auto; }
@@ -1877,8 +1881,12 @@ async function main() {
   // action rather than a separate full-width button row, since a layer only ever has one filter
   // (add/remove are mutually exclusive states here, not a repeatable "add another" action).
   // Lucide's exact SVG source (plus / trash) for visual consistency with the shadcn ecosystem -
-  // same convention as the theme switch's monitor/sun/moon icons.
-  const ADD_FILTER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>';
+  // same convention as the theme switch's monitor/sun/moon icons. The plus glyph fills more of its
+  // 24x24 viewBox (14 units) than the x glyph used for REMOVE_PROPERTY_ICON does (12 units), so
+  // rendering both at the same width/height makes the plus's ink look bigger despite equal CSS
+  // sizing - the "icon-plus" class lets it be sized down slightly to compensate (see its rule in
+  // <style>), rather than relying on width/height alone to mean "the same visual size."
+  const ADD_FILTER_ICON = '<svg class="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>';
   const REMOVE_FILTER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
   const REMOVE_PROPERTY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
 
