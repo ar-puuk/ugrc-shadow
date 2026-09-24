@@ -28,9 +28,9 @@
 
     { "note": "buildings (if present)", "match": { "source_layer": "(?i)build", "type": "fill" }, "paint": { "fill-color": { "color": "@buildings", "alpha": 0.5 }, "fill-outline-color": "@road_casing" } },
     { "note": "railroads",            "match": { "source_layer": "^Railroads$" }, "paint": { "line-color": "@rail", "icon-color": "@rail" } },
-    { "note": "trails outer",         "match": { "source_layer": "^TrailsAndPathways$", "id": "/1$" }, "paint": { "line-color": "@trail_outer" } },
-    { "note": "trails inner",         "match": { "source_layer": "^TrailsAndPathways$", "id": "/0$" }, "paint": { "line-color": "@trail_inner" } },
-    { "note": "trail dash spacing (zoom 15+ tier): UGRC bakes a dash length shorter than the line's own width (a fine stipple); Voyager's own road_path dash is 2-3x its width (open, clearly spaced ticks) - borrowed verbatim from Voyager's upper zoom stop, applied to both outer/inner so their dash cycles stay phase-aligned",
+    { "note": "trails: Voyager's road_path is one flat gray dash with no casing/fill split at all - UGRC's /1+/0 pair are given the identical color (both @trail_inner, Voyager's own tone) and phase-aligned dasharray below, so the wider /1 and narrower /0 blend into what reads as a single dashed line at /1's width instead of a two-tone bordered one",
+      "match": { "source_layer": "^TrailsAndPathways$" }, "paint": { "line-color": "@trail_inner" } },
+    { "note": "trail dash spacing (zoom 15+ tier): borrowed verbatim from Voyager's road_path upper zoom stop",
       "match": { "source_layer": "^TrailsAndPathways$", "id": "All Trails/(0|1)$" }, "paint": { "line-dasharray": [3, 3] } },
     { "note": "trail dash spacing (zoom 14-15 tier): Voyager's lower zoom stop for the same dash",
       "match": { "source_layer": "^TrailsAndPathways$", "id": "All Trails_1/(0|1)$" }, "paint": { "line-dasharray": [2, 2] } },

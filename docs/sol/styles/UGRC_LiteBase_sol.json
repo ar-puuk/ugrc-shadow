@@ -2248,7 +2248,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#b0b0b0",
+        "line-color": "#d7d7d7",
         "line-dasharray": [
           3,
           3
@@ -2297,7 +2297,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#b0b0b0",
+        "line-color": "#d7d7d7",
         "line-dasharray": [
           2,
           2
