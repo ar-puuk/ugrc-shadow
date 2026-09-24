@@ -4,44 +4,130 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UGRC Lite style compare</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f1013'/%3E%3Cpath d='M50 8a42 42 0 000 84z' fill='%23f2b84b'/%3E%3Ccircle cx='50' cy='50' r='42' fill='none' stroke='%23272a31' stroke-width='4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
 <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.css">
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #1f1f1f; color: #ddd; font: 14px/1.4 system-ui, sans-serif; }
+  :root {
+    --accent: #f2b84b;
+    --accent-2: #6ea8fe;
+    --glass-bg: rgba(15, 16, 20, .68);
+    --glass-border: rgba(255, 255, 255, .09);
+    --text: #f4f5f7;
+    --text-dim: #a9adb6;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: #0d0e10; color: var(--text);
+    font: 14px/1.4 "Inter", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
   #maps { position: relative; width: 100%; height: 100vh; overflow: hidden; }
   #before, #after { position: absolute; top: 0; bottom: 0; width: 100%; }
+
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  }
+
   /* header/footer overlay BOTH map halves (they span the full width, the compare slider only
-     clips the maps beneath), so their backing scrim must never fade down to transparent - it
-     needs to stay dark enough on its own to hold white text over any light basemap, not just
-     over a dark one. text-shadow is a second line of defense. */
+     clips the maps beneath), so both float above everything as their own frosted cards rather
+     than a scrim - readable over any basemap regardless of its own brightness. */
   header {
-    position: absolute; top: 0; left: 0; right: 0; z-index: 2;
-    padding: 10px 14px; background: linear-gradient(rgba(0,0,0,.75), rgba(0,0,0,.35));
+    position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+    display: flex; justify-content: center;
+    padding: 14px 14px 0;
     pointer-events: none;
   }
-  header .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; pointer-events: none; }
-  header h1 { margin: 0; font-size: 15px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
-  .picker { display: flex; align-items: center; gap: 6px; pointer-events: auto; }
-  .picker label { font-size: 11px; color: #eee; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
-  .picker select {
-    font: inherit; font-size: 12px; padding: 3px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,.4);
-    background: rgba(0,0,0,.55); color: #fff;
+  .toolbar {
+    pointer-events: auto;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px 20px;
+    width: 100%; max-width: 860px;
+    padding: 10px 18px;
+    border-radius: 14px;
   }
+  .brand { margin-right: auto; line-height: 1.2; }
+  .brand h1 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: .1px; }
+  .brand p { margin: 0; font-size: 11px; font-weight: 500; color: var(--text-dim); }
+
+  .controls { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+  .picker { display: flex; flex-direction: column; gap: 4px; }
+  .picker label {
+    font-size: 10px; font-weight: 600; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: .07em;
+  }
+  .picker select {
+    font: inherit; font-size: 13px; font-weight: 500; color: var(--text); color-scheme: dark;
+    padding: 6px 10px; min-width: 9.5em;
+    border-radius: 8px; border: 1px solid rgba(255, 255, 255, .16);
+    background: rgba(255, 255, 255, .06);
+    cursor: pointer;
+    transition: border-color .15s ease, background-color .15s ease;
+  }
+  .picker select:hover { background: rgba(255, 255, 255, .11); border-color: rgba(255, 255, 255, .3); }
+  .picker select:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  .swap-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; flex: none;
+    border-radius: 50%; border: 1px solid rgba(255, 255, 255, .16);
+    background: rgba(255, 255, 255, .06); color: var(--text);
+    font-size: 14px; line-height: 1; cursor: pointer;
+    transition: transform .25s ease, background-color .15s ease, border-color .15s ease;
+  }
+  .swap-btn:hover { background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .32); }
+  .swap-btn:active { transform: rotate(180deg) scale(.92); }
+  .swap-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
   footer {
     position: absolute; bottom: 0; left: 0; right: 0; z-index: 2;
-    padding: 6px 14px; font-size: 11px; color: #eee; background: linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.75));
-    text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,.9);
+    display: flex; justify-content: center;
+    padding: 0 14px 14px;
+    pointer-events: none;
   }
-  footer a { color: #fff; }
+  .footer-pill {
+    pointer-events: auto;
+    padding: 6px 16px; border-radius: 999px;
+    font-size: 11px; color: var(--text-dim); text-align: center;
+  }
+  .footer-pill a { color: var(--text); text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, .3); }
+  .footer-pill a:hover { color: var(--accent-2); border-color: var(--accent-2); }
+
   /* Mounted directly on #maps (a sibling of #before/#after, not inside either), so the compare
      slider's clip - which only clips the two map containers - never hides it. Top offset is set
      from JS (header height varies - the picker row wraps at phone widths), not hardcoded here. */
-  #nav-control { position: absolute; right: 10px; z-index: 4; }
+  #nav-control { position: absolute; right: 14px; z-index: 4; }
+  .maplibregl-ctrl-group {
+    border-radius: 10px !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .35) !important;
+    overflow: hidden;
+  }
+
   #status {
-    position: absolute; z-index: 3; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    padding: 10px 16px; background: rgba(0,0,0,.7); border-radius: 6px; color: #eee; font-size: 13px;
+    position: absolute; z-index: 6; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 18px; border-radius: 12px;
+    font-size: 13px; font-weight: 500; color: var(--text);
   }
   #status[hidden] { display: none; }
+  .spinner {
+    width: 14px; height: 14px; flex: none;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, .25); border-top-color: var(--accent);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spinner { animation: none; }
+    .swap-btn { transition: none; }
+  }
 </style>
 </head>
 <body>
@@ -51,23 +137,34 @@
   <div id="nav-control"></div>
 </div>
 <header>
-  <div class="row">
-    <h1>UGRC Lite style compare</h1>
-    <div class="picker">
-      <label for="left-pick">Left</label>
-      <select id="left-pick"></select>
+  <div class="toolbar glass">
+    <div class="brand">
+      <h1>UGRC Lite</h1>
+      <p>Style compare</p>
     </div>
-    <div class="picker">
-      <label for="right-pick">Right</label>
-      <select id="right-pick"></select>
+    <div class="controls">
+      <div class="picker">
+        <label for="left-pick">Left</label>
+        <select id="left-pick"></select>
+      </div>
+      <button id="swap-btn" class="swap-btn" type="button" title="Swap sides" aria-label="Swap left and right">⇄</button>
+      <div class="picker">
+        <label for="right-pick">Right</label>
+        <select id="right-pick"></select>
+      </div>
     </div>
   </div>
 </header>
 <footer>
-  Basemap data &amp; tiles: <a href="https://gis.utah.gov/" target="_blank" rel="noopener">UGRC</a>, via Esri ArcGIS Online.
-  Styles: <a href="https://github.com/" style="color:#fff">ugrc-styles</a>.
+  <div class="footer-pill glass">
+    Basemap data &amp; tiles: <a href="https://gis.utah.gov/" target="_blank" rel="noopener">UGRC</a>, via Esri ArcGIS Online &middot;
+    Styles: <a href="https://github.com/ar-puuk/ugrc-styles" target="_blank" rel="noopener">ugrc-styles</a>
+  </div>
 </footer>
-<div id="status">Loading UGRC's live styles&hellip;</div>
+<div id="status" class="glass">
+  <div class="spinner" aria-hidden="true"></div>
+  <span id="status-text">Loading UGRC's live styles&hellip;</span>
+</div>
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.js"></script>
@@ -266,6 +363,7 @@ function populatePicker(select, options, selected) {
 
 async function main() {
   const statusEl = document.getElementById("status");
+  const statusText = document.getElementById("status-text");
   const leftPick = document.getElementById("left-pick");
   const rightPick = document.getElementById("right-pick");
   try {
@@ -332,7 +430,7 @@ async function main() {
 
     async function swap(map, key) {
       statusEl.hidden = false;
-      statusEl.textContent = `Loading ${options[key].label}…`;
+      statusText.textContent = `Loading ${options[key].label}…`;
       try {
         map.setStyle(await styleFor(key));
       } finally {
@@ -341,9 +439,18 @@ async function main() {
     }
     leftPick.addEventListener("change", () => swap(before, leftPick.value));
     rightPick.addEventListener("change", () => swap(after, rightPick.value));
+
+    document.getElementById("swap-btn").addEventListener("click", () => {
+      const l = leftPick.value, r = rightPick.value;
+      if (l === r) return;
+      leftPick.value = r;
+      rightPick.value = l;
+      swap(before, leftPick.value);
+      swap(after, rightPick.value);
+    });
   } catch (err) {
     console.error(err);
-    statusEl.textContent = "Failed to load: " + err.message;
+    statusText.textContent = "Failed to load: " + err.message;
   }
 }
 
