@@ -1,6 +1,7 @@
 "use strict";
 
-// Shared between docs/index.html and docs/editor.html. See dd-* styles in each page's <style>.
+// Used by docs/index.html - split out purely to keep that page's own inline script smaller.
+// See the dd-* rules in its <style> block.
 
 /** All currently-open dropdowns close when any other one opens or the page is clicked outside
  * of them - tracked here rather than per-instance so opening #2 doesn't need to know #1 exists. */

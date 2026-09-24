@@ -1,8 +1,9 @@
 "use strict";
 
-// Shared between docs/index.html (compare demo) and docs/editor.html (style editor): fetching
-// UGRC's live services or a committed theme's style JSONs, absolutizing their URLs, and merging
-// the 3 per-service styles into one MapLibre-ready style. See STYLE_EDITOR_PLAN.md §3-4.
+// Used by docs/index.html: fetching UGRC's live services or a committed theme's style JSONs,
+// absolutizing their URLs, and merging the 3 per-service styles into one MapLibre-ready style.
+// Split out of index.html's own inline script purely to keep that script from growing even larger,
+// not because anything else consumes this module. See STYLE_EDITOR_PLAN.md §3-4.
 
 // UGRC's 3 original services, fetched live (never snapshotted - see README).
 export const ORIGINAL_SERVICE_URLS = {

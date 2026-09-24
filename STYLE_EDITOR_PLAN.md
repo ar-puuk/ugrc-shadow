@@ -1,10 +1,17 @@
 # Plan: a Maputnik-style editor page for `docs/`
 
-Status: proposal, not yet implemented. Scope is entirely `docs/` (the static demo site published
-to GitHub Pages) — nothing here touches `src/`, `config/`, or the Python build pipeline. Themes
-keep being generated exactly as they are today; this just adds a second page that lets a visitor
-customize a copy of a style in the browser, compare it against other styles, and download the
-result.
+Status: implemented. Everything below was built as `docs/editor.html`, a second page alongside the
+original `docs/index.html` compare demo — but the two were then merged into one page: `editor.html`
+became the new `docs/index.html` (superseding the old compare-only one), with its own "Compare"
+toggle covering what the old page did. There is now exactly one page, defaulting to the editor
+view. The design below (layer grouping, property specs, the 3-file export, compare mode's option
+list, draft autosave) is otherwise still accurate to what's live — only the "second page" framing
+is out of date.
+
+Scope is entirely `docs/` (the static demo site published to GitHub Pages) — nothing here touches
+`src/`, `config/`, or the Python build pipeline. Themes keep being generated exactly as they are
+today; this just adds a page that lets a visitor customize a copy of a style in the browser,
+compare it against other styles, and download the result.
 
 ## 1. Goal
 
