@@ -380,6 +380,17 @@
   .raw-prop-error { font-size: 11px; color: hsl(var(--destructive)); margin-top: 4px; }
   .prop-section { margin: 18px 0 14px; padding-top: 14px; border-top: 1px solid hsl(var(--border)); }
   .prop-section-title { margin: 0 0 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: hsl(var(--muted-foreground)); }
+  .prop-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .prop-section-head .prop-section-title { margin: 0; }
+  .prop-section-action {
+    display: flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; flex: none;
+    border: 1px solid hsl(var(--border)); border-radius: calc(var(--radius) - 3px);
+    background: hsl(var(--background)); color: hsl(var(--foreground)); cursor: pointer;
+  }
+  .prop-section-action:hover { background: hsl(var(--muted)); border-color: hsl(var(--ring)); }
+  .prop-section-action:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
+  .prop-section-action svg { width: 16px; height: 16px; stroke-width: 2.5; }
   .filter-row { display: flex; gap: 6px; }
   .filter-row .prop-select { flex: 0 0 4.5em; }
   .filter-row .filter-field { flex: 1 1 auto; }
@@ -1439,15 +1450,47 @@ async function main() {
   /** All the sample filters in both committed themes are the plain `["==", field, value]` /
    * `["!=", field, value]` shape - rendered as a small operator/field/value builder. Anything else
    * (an "all"/"any" combinator, or no filter at all is just omitted) falls back to raw JSON. */
+  // "+" to add a filter, swapping to a trash icon to remove it once one exists - a single header
+  // action rather than a separate full-width button row, since a layer only ever has one filter
+  // (add/remove are mutually exclusive states here, not a repeatable "add another" action).
+  const ADD_FILTER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+  const REMOVE_FILTER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
+
   function renderFilterSection(layer) {
     const section = document.createElement("div");
     section.className = "prop-section";
+
+    const hasFilter = layer.filter !== undefined;
+    const head = document.createElement("div");
+    head.className = "prop-section-head";
     const h = document.createElement("h3");
     h.className = "prop-section-title";
     h.textContent = "Filter";
-    section.appendChild(h);
+    const actionBtn = document.createElement("button");
+    actionBtn.type = "button";
+    actionBtn.className = "prop-section-action";
+    actionBtn.title = hasFilter ? "Remove filter" : "Add filter";
+    actionBtn.setAttribute("aria-label", hasFilter ? "Remove filter" : "Add filter");
+    actionBtn.innerHTML = hasFilter ? REMOVE_FILTER_ICON : ADD_FILTER_ICON;
+    actionBtn.addEventListener("click", () => {
+      if (hasFilter) {
+        delete layer.filter;
+        map.setFilter(layer.id, null); // null clears a layer's filter in the MapLibre API
+      } else {
+        // A blank simple filter, not a guessed real one - starts matching nothing (an empty field
+        // name/value never equals a real feature's property) until the user fills it in, rather
+        // than silently doing something arbitrary to which features are shown.
+        layer.filter = ["==", "", ""];
+        map.setFilter(layer.id, layer.filter);
+      }
+      markLayerChecked(layer);
+      refreshRawJson(layer);
+      renderPropertyPanel(); // swaps the empty state <-> filter builder below
+    });
+    head.append(h, actionBtn);
+    section.appendChild(head);
 
-    if (layer.filter === undefined) {
+    if (!hasFilter) {
       const note = document.createElement("p");
       note.className = "prop-empty";
       note.textContent = "No filter on this layer.";
