@@ -478,6 +478,42 @@ function downloadJson(filename, data) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// A crash/reload safety net only (STYLE_EDITOR_PLAN.md §10) - never presented as an alternative to
+// actually downloading a file, which stays the only real "save." One slot: a later draft always
+// replaces an earlier one, matching this editor's single `current` build. Wrapped in try/catch
+// throughout since localStorage can throw (private browsing, disabled site data, quota) and losing
+// the safety net silently is the only acceptable failure mode here - never a crash.
+const DRAFT_KEY = "ugrc-editor-draft-v1";
+
+function saveDraftNow(current) {
+  if (!current) return;
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      templateKey: current.templateKey || null,
+      label: current.label,
+      style: current.style,
+      serviceOriginals: current.serviceOriginals || null,
+      savedAt: Date.now(),
+    }));
+  } catch (err) {
+    console.warn("[editor] couldn't save draft to localStorage:", err);
+  }
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    console.warn("[editor] couldn't read draft from localStorage:", err);
+    return null;
+  }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to clean up if this throws */ }
+}
+
 async function main() {
   const statusEl = document.getElementById("status");
   const statusText = document.getElementById("status-text");
@@ -529,6 +565,7 @@ async function main() {
   let compareBefore = null, compareAfter = null;
   let compareOpts = null;
   const compareStyleCache = new Map(); // template key -> render-ready style (not for the two live keys)
+  let draftSaveTimer = null;
 
   function setStatus(msg) {
     if (msg == null) { statusEl.hidden = true; return; }
@@ -548,6 +585,10 @@ async function main() {
     const changed = !pristine || JSON.stringify(layer) !== JSON.stringify(pristine);
     if (changed) changedIds.add(layer.id); else changedIds.delete(layer.id);
     updateChangedBadge();
+    // Debounced: a dragged slider fires many edits per second, but the draft only needs to be
+    // roughly current, not updated on every single one of them.
+    clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(() => saveDraftNow(current), 1000);
   }
 
   function hasUnsavedEdits() {
@@ -849,6 +890,7 @@ async function main() {
     renderLayerList();
     renderPropertyPanel();
     updateChangedBadge();
+    saveDraftNow(current);
   }
 
   function selectLayer(id) {
@@ -1275,6 +1317,7 @@ async function main() {
     changedIds.delete(id);
     map.setStyle(prepareForRender(current.style));
     renderLayerList(); renderPropertyPanel(); updateChangedBadge();
+    saveDraftNow(current);
   }
 
   function resetAll() {
@@ -1284,6 +1327,7 @@ async function main() {
     orderChanged = false;
     map.setStyle(prepareForRender(current.style));
     renderLayerList(); renderPropertyPanel(); updateChangedBadge();
+    saveDraftNow(current);
   }
 
   async function loadBuild(built, label) {
@@ -1296,6 +1340,9 @@ async function main() {
     renderLayerList();
     renderPropertyPanel();
     updateChangedBadge();
+    saveDraftNow(current); // keeps the draft's own templateKey/label in sync immediately, not just
+                            // on the next debounced edit - narrows the window where a stale draft
+                            // from a since-abandoned load could get offered for restore on reload
   }
 
   async function loadTemplate(key) {
@@ -1473,8 +1520,23 @@ async function main() {
     setStatus("Loading UGRC's live styles…");
     options = await loadOptions();
     templatePick.setOptions(options);
-    await loadTemplate(DEFAULT_TEMPLATE in options ? DEFAULT_TEMPLATE : Object.keys(options)[0]);
-    templatePick.setValueSilently(current.templateKey); // reflect the initial load; avoid re-dispatching "change"
+
+    const draft = loadDraft();
+    if (draft && confirm(`Restore your unsaved draft from ${new Date(draft.savedAt).toLocaleString()} (${draft.label})?`)) {
+      // The draft becomes the new pristine baseline (same as loading an upload does) - a "Reset"
+      // afterwards reverts to the draft, not all the way back to the original untouched template.
+      // Fine for a crash-recovery safety net; picking the template again from the dropdown (with
+      // its own discard-edits confirm) is how you'd get back to a truly pristine copy.
+      await loadBuild({ style: draft.style, serviceOriginals: draft.serviceOriginals }, draft.label);
+      current.templateKey = draft.templateKey;
+      if (draft.templateKey) templatePick.setValueSilently(draft.templateKey);
+      else templatePick.label.textContent = draft.label;
+      if (!draft.templateKey) uploadedBuild = { style: JSON.parse(JSON.stringify(draft.style)), label: draft.label };
+    } else {
+      if (draft) clearDraft(); // declined - don't keep re-prompting on every future reload
+      await loadTemplate(DEFAULT_TEMPLATE in options ? DEFAULT_TEMPLATE : Object.keys(options)[0]);
+      templatePick.setValueSilently(current.templateKey); // reflect the initial load; avoid re-dispatching "change"
+    }
     compareToggleBtn.disabled = false;
   } catch (err) {
     console.error(err);

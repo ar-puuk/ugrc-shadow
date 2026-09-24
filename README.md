@@ -12,6 +12,15 @@ holds more than one style, developed side by side:
 **[Live compare demo →](https://ar-puuk.github.io/ugrc-styles/)** <!-- update once Pages is live -->
 Pick any theme (or UGRC's own live basemap) independently for each side of the slider.
 
+**[Style editor →](https://ar-puuk.github.io/ugrc-styles/editor.html)**
+A browser-only visual editor for customizing any built-in theme (or your own uploaded style):
+browse layers grouped by service and by the same groups UGRC's own layer ids encode (e.g.
+"PARKS & REC"), edit colors/opacity/numbers/enums/filters/zoom ranges, reorder layers within a
+service, and download either one combined style JSON or the 3 separate
+`VectorHillshade`/`LiteBase`/`LiteLabels` files matching how UGRC actually hosts these. Has its
+own compare mode too, including your in-progress edit as one of the sides. Nothing you do here
+feeds back into this repo — see [`STYLE_EDITOR_PLAN.md`](STYLE_EDITOR_PLAN.md) for the design.
+
 ## What this is
 
 UGRC publishes three public Esri vector-tile services that together make up their "Lite"
@@ -37,6 +46,10 @@ config/
 
 docs/
   index.html               # the compare demo - reads themes.json, needs no per-theme changes
+  editor.html              # the style editor - same, reads themes.json, no per-theme changes
+  assets/
+    styles.js              # style loading/merging/splitting, shared by index.html and editor.html
+    dropdown.js            # the custom picker combobox, shared by both pages
   themes.json              # generated: theme labels + where each one's style JSONs live
   <theme>/
     styles/UGRC_<Service>_<theme>.json
@@ -44,7 +57,7 @@ docs/
 ```
 
 Adding a new theme means adding a `config/themes/<name>/` directory (see "Adding a theme"
-below) — nothing under `src/` or `docs/index.html` needs to change.
+below) — nothing under `src/` or `docs/` needs to change.
 
 ## Where the colors come from
 
