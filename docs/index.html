@@ -188,8 +188,12 @@ async function main() {
 
     const before = new maplibregl.Map({ container: "before", style: lightStyle, center: CENTER, zoom: ZOOM });
     const after = new maplibregl.Map({ container: "after", style: darkStyle, center: CENTER, zoom: ZOOM });
-    before.addControl(new maplibregl.NavigationControl());
-    window.__ugrcDebug = { before, after }; // temporary, for local diagnosis only
+    // The compare slider clips "before" to its left portion and "after" to its right portion,
+    // so each map's own navigation control has to sit in the corner that stays inside its own
+    // visible region - "before"'s at top-left, "after"'s at top-right - or it's hidden behind
+    // the clip at any normal slider position. The two maps are camera-synced either way.
+    before.addControl(new maplibregl.NavigationControl(), "top-left");
+    after.addControl(new maplibregl.NavigationControl(), "top-right");
 
     // Note: UGRC's own font-glyph endpoint 200s with a JSON error body (not real PBF) for a
     // few font names some LiteLabels layers reference - a pre-existing gap in their live font
