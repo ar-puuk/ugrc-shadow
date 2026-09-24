@@ -46,22 +46,41 @@ Maputnik either chokes on the raw per-service JSON or has no opinion about the m
 our own means the editor can bake in exactly the UGRC-specific plumbing `index.html` already has,
 and skip everything Maputnik supports that we don't need.
 
-## 3. What the editor actually edits: the merged style, not the 3 raw services
+## 3. Editing model: one merged view in the editor, exportable either combined or as UGRC's 3 files
 
 `buildOriginalStyle()` / `buildThemeStyle()` in `docs/index.html` already fetch a template's 3
 services (`VectorHillshade`, `LiteBase`, `LiteLabels`) and flatten them through `mergeStyles()`
 into one namespaced MapLibre style (shared `esri`-family sources, a sprite array, deduped layer
-ids). The editor loads and edits **that merged output**, for two reasons:
+ids). The editor's layer tree/map/property panel all operate on **that merged view** — one layer
+list, one map, one set of property panels, regardless of whether 3 services went into it or a
+visitor uploaded a single arbitrary style. That part of the original plan stands.
 
-- It's a single, valid, standalone MapLibre style — the same shape an uploaded custom style would
-  be, so the layer-list/property-panel code has one input shape to handle, not two.
-- Re-splitting an edited merged style back into 3 per-service files isn't needed anywhere: export
-  is "download the one style JSON you're looking at," not "regenerate `config/themes/`."
+What changes: UGRC hosts, and per your note will keep hosting for the foreseeable future, three
+separate style JSONs — and that's also this repo's own committed output shape
+(`docs/<theme>/styles/UGRC_<Service>_<theme>.json`). Most people customizing "the UGRC style" for
+their own map want those same three files back, not one merged blob — so export needs to go back
+the other way for anything that started as one of our own templates. To make that possible,
+`mergeStyles()` needs one addition: tag each merged layer with where it came from, e.g.
+`layer.metadata["ugrc:service"] = name` — the GL spec explicitly allows an opaque `metadata` object
+per layer for exactly this kind of app-level bookkeeping, and it round-trips through MapLibre
+untouched. `buildThemeStyle()`/`buildOriginalStyle()` also need to retain each service's original,
+un-namespaced `sprite`/`glyphs`/`sources` object after the merge call (already fetched, just
+currently discarded once `mergeStyles()` returns).
 
-This does mean an edited "theme" download is a merged/flattened style, not a drop-in replacement
-for `docs/<theme>/styles/UGRC_*.json`. That's fine for the stated use case (customize, test,
-download for your own map) — call it out explicitly in the UI copy so nobody expects it to feed
-back into this repo's build.
+Un-merging at export time (§8) is then: group the edited layers by `metadata["ugrc:service"]`, and
+for each of the 3 services rebuild `{version 8, sprite, glyphs, sources, layers}` from that
+service's retained original sprite/glyphs/source object, renaming each layer's `source` back from
+its merged/namespaced form to the service's own original source key, and stripping any
+`${service}:`-prefixed `icon-image` that `mergeStyles()` added for non-default sprites.
+
+A layer the user adds from scratch (§7) has no `metadata["ugrc:service"]` yet — the "add layer"
+flow asks which of the 3 services it belongs to (defaulting to whichever layer is currently
+selected), the same choice Maputnik's own "add layer" dialog makes you pick a source for.
+
+An **uploaded** arbitrary style that isn't one of our own templates carries no service split at
+all — for that case only the combined single-file export applies (§8); "download 3 files" is only
+offered when what's loaded traces back to a built-in template, or to a prior 3-file export
+reloaded with its `metadata` intact.
 
 ## 4. Refactor first: share code between `index.html` and the new page
 
@@ -156,8 +175,19 @@ live style against the originally-loaded one.
   same code path as a template — skip `resolveThemeStyle`'s UGRC-specific relative-sprite handling
   for uploads (assume an uploaded style's sprite/glyphs are already absolute, since it isn't one of
   this repo's own outputs).
-- **Download**: `JSON.stringify(currentStyle, null, 2)` as a `Blob`, triggered via a temporary
-  `<a download>` — name the file from the loaded template's label plus `-edited.json`.
+- **Download — two options, offered when applicable**:
+  - **Three style JSONs (default/primary)**: `UGRC_VectorHillshade_<name>.json`,
+    `UGRC_LiteBase_<name>.json`, `UGRC_LiteLabels_<name>.json`, re-split per §3. This is what most
+    visitors customizing "the UGRC style" actually want — the same three files UGRC hosts and this
+    repo already publishes, addable to a map exactly as the README already describes. Only offered
+    when the loaded style traces back to a built-in template (or a reloaded 3-file export with its
+    `metadata["ugrc:service"]` tags intact).
+  - **Combined single style JSON (secondary)**: the merged style as one file, for anyone who wants
+    one file instead of three, or who started from a single-file upload (in which case it's the
+    only option — no service split to reconstruct).
+  Each triggers a `JSON.stringify(style, null, 2)` `Blob` via a temporary `<a download>`; the
+  3-file option just fires it three times in a row rather than needing a zip dependency (worth
+  revisiting only if three separate browser download prompts prove annoying in testing).
 
 ## 9. Compare mode integration (per your answer in §2 of the review)
 
@@ -175,11 +205,13 @@ Left/right `Dropdown`s reuse `docs/assets/dropdown.js` unchanged.
 
 ## 10. Persistence
 
-No backend and no URL-encoded state (these merged styles run tens of thousands of characters —
-too big for a shareable URL). In-progress edits autosave to `localStorage` (debounced, keyed by
-which template they started from) purely so a reload/crash doesn't lose work; download is the only
-real "save/share" mechanism. State that needs to survive a session doesn't belong in memory or in
-this repo — it's this feature's own concern, scoped to the visitor's browser.
+No backend, no account, no URL-encoded state (these merged styles run tens of thousands of
+characters — too big for a shareable URL). The only real "save" is one of the file downloads in
+§8 — closing the tab or navigating away without downloading discards the edits, by design (per
+your framing: save as file(s), or discard). A `localStorage` autosave (debounced, keyed by which
+template the session started from) is worth keeping purely as a crash/reload safety net so an
+accidental tab close doesn't silently lose work — but it's a recovery convenience, not a save
+mechanism, and never presented to the user as an alternative to actually downloading a file.
 
 ## 11. Stack / dependencies
 
@@ -194,8 +226,9 @@ like the rest of the site.
 
 - No visual builder for `interpolate`/`match`/`step` expressions — raw-JSON textarea only.
 - No sprite/icon editing (recoloring or replacing icon images) — sprites stay fixed per template.
-- No re-splitting an edited merged style back into 3 per-service files for use in `config/themes/`
-  — this is a "customize and export a usable style," not a "contribute a new theme" tool.
+- Re-splitting into 3 files is for *download*, not for feeding back into this repo's build —
+  `config/themes/` works from `theme.json`/palette rules, not by hand-editing an output style, so
+  a 3-file export still isn't a "contribute a new theme" pathway even though it's the same shape.
 - No server-side sharing/short-links for an edited style.
 - No `raster`/`hillshade`-specific property support beyond what `VectorHillshade`'s existing layers
   already use (its style has ~400 lines vs. LiteBase's ~10,700 — not the primary target).
@@ -203,16 +236,21 @@ like the rest of the site.
 ## 13. Phased implementation
 
 1. **Refactor** (§4): pull shared JS/CSS out of `index.html` into `docs/assets/`, verify the
-   existing compare demo is pixel-identical in behavior. No editor code yet.
+   existing compare demo is pixel-identical in behavior. Also add the `metadata["ugrc:service"]`
+   tagging and retained per-service sprite/glyphs/sources to `mergeStyles()`/`buildThemeStyle()`/
+   `buildOriginalStyle()` here (§3) — an additive, behavior-preserving change `index.html` doesn't
+   otherwise need. No editor code yet.
 2. **Scaffold**: `editor.html` loads a template or upload, renders a single map, raw-JSON
-   read-only view, download button (identity pass-through end to end).
+   read-only view, and the combined single-file download (simplest export path end to end).
 3. **Layer list** (§6): tree/list + search + visibility toggle + selection.
 4. **Property panel** (§7): typed inputs for Paint/Layout, then Filter and Zoom tabs, then the
    raw-JSON fallback field and the per-layer/global "changed" diffing.
-5. **Compare mode** (§9): slider toggle, extended option list including upload/current-edit.
-6. **Polish**: `localStorage` autosave (§10), mobile layout, a11y pass (keyboard nav through the
-   layer tree, labeled form controls), link the two pages from each other's header, README update
-   pointing at the new page.
+5. **3-file export** (§3/§8): the un-merge step and the "add layer → pick a service" flow —
+   deferred until there's real layer data to test it against.
+6. **Compare mode** (§9): slider toggle, extended option list including upload/current-edit.
+7. **Polish**: `localStorage` crash-recovery autosave (§10), mobile layout, a11y pass (keyboard
+   nav through the layer tree, labeled form controls), link the two pages from each other's header,
+   README update pointing at the new page.
 
 Each phase should be checked manually in a browser (serve `docs/` locally, e.g.
 `python -m http.server` from that directory) before moving to the next — there's no test suite
