@@ -138,13 +138,27 @@
   .search-input::placeholder { color: var(--text-dim); }
 
   #layer-list { flex: 1; overflow-y: auto; }
+  .service-header {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    padding: 8px 10px; border: none; border-bottom: 1px solid rgba(255, 255, 255, .06);
+    background: rgba(255, 255, 255, .03); color: var(--text);
+    font-size: 12px; font-weight: 600; cursor: pointer; text-align: left;
+  }
+  .service-header:hover { background: rgba(255, 255, 255, .07); }
+  .service-header:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+  .service-chevron { width: 1em; flex: none; color: var(--text-dim); }
+  .service-name { flex: 1 1 auto; }
+  .service-count { flex: none; font-size: 10.5px; font-weight: 500; color: var(--text-dim); }
   .layer-row {
     display: flex; align-items: center; gap: 8px;
     padding: 6px 10px; cursor: pointer; border-bottom: 1px solid rgba(255, 255, 255, .04);
   }
   .layer-row:hover { background: rgba(255, 255, 255, .05); }
   .layer-row.is-selected { background: rgba(110, 168, 254, .15); }
+  .layer-row.is-dragging { opacity: .4; }
+  .layer-row.drag-over { box-shadow: inset 0 2px 0 var(--accent-2); }
   .layer-row input[type=checkbox] { flex: none; }
+  .drag-handle { flex: none; color: var(--text-dim); font-size: 12px; line-height: 1; cursor: grab; }
   .layer-tag {
     flex: none; font-size: 9px; font-weight: 700; letter-spacing: .03em;
     padding: 2px 5px; border-radius: 4px; color: var(--text-dim);
@@ -281,6 +295,12 @@ const CENTER = [-111.891, 40.761]; // Salt Lake City
 const ZOOM = 10;
 const DEFAULT_TEMPLATE = "shadow";
 
+// The 3 services a built-in template's merged style is made of (bottom -> top, same order
+// mergeStyles() uses) - the layer list is an accordion over these, one open at a time
+// (STYLE_EDITOR_PLAN.md §6). An uploaded style has no such split and falls back to a flat list.
+const SERVICE_ORDER = ["VectorHillshade", "LiteBase", "LiteLabels"];
+const SERVICE_ABBR = { VectorHillshade: "VH", LiteBase: "LB", LiteLabels: "LL" };
+
 // Which paint properties this editor exposes, per layer type - the thin-slice scope is
 // explicitly color + opacity only (see STYLE_EDITOR_PLAN.md's phased plan); anything else
 // (numbers, enums, filters, expressions) is left to the raw-JSON view for now.
@@ -369,11 +389,18 @@ async function main() {
   let options = null;
   let current = null; // { style, serviceOriginals, label }
   let pristineLayersById = null;
+  let pristineOrder = null; // layer ids in their as-loaded order, for resetAll() and orderChanged
   let selectedLayerId = null;
+  let openService = "LiteBase"; // which accordion section is expanded; null = none
+  let draggingId = null;
+  let draggingService = null;
   // Ids of layers currently differing from their pristine snapshot. Tracked incrementally (one
   // comparison per edit) rather than re-diffing all ~570 merged layers on every slider "input"
   // event, which fires continuously while dragging and would otherwise visibly stutter.
   let changedIds = new Set();
+  // Reordering doesn't change any single layer's own JSON, so it wouldn't show up in changedIds -
+  // tracked separately, set by reorderWithinService().
+  let orderChanged = false;
 
   function setStatus(msg) {
     if (msg == null) { statusEl.hidden = true; return; }
@@ -383,7 +410,9 @@ async function main() {
 
   function snapshotPristine() {
     pristineLayersById = new Map(current.style.layers.map((ly) => [ly.id, JSON.parse(JSON.stringify(ly))]));
+    pristineOrder = current.style.layers.map((ly) => ly.id);
     changedIds = new Set();
+    orderChanged = false;
   }
 
   function markLayerChecked(layer) {
@@ -394,12 +423,14 @@ async function main() {
   }
 
   function hasUnsavedEdits() {
-    return changedIds.size > 0;
+    return changedIds.size > 0 || orderChanged;
   }
 
   function updateChangedBadge() {
-    const n = changedIds.size;
-    changedBadgeEl.textContent = n > 0 ? `${n} layer${n === 1 ? "" : "s"} changed` : "";
+    const parts = [];
+    if (changedIds.size > 0) parts.push(`${changedIds.size} layer${changedIds.size === 1 ? "" : "s"} changed`);
+    if (orderChanged) parts.push("reordered");
+    changedBadgeEl.textContent = parts.join(", ");
   }
 
   function dominantSwatch(layer) {
@@ -411,73 +442,201 @@ async function main() {
     return null;
   }
 
+  function emptyMessage(text) {
+    const empty = document.createElement("div");
+    empty.id = "layer-empty";
+    empty.textContent = text;
+    return empty;
+  }
+
+  /** A style with a known 3-service split (a built-in template) renders as an accordion, one
+   * service open at a time, so the working set stays manageable (LiteBase alone runs to several
+   * hundred layers - see STYLE_EDITOR_PLAN.md §6). Typing a filter auto-expands every section with
+   * a match instead of requiring the right one to already be open. A style with no service split
+   * (an upload) has no sections to group by and falls back to one flat list. */
   function renderLayerList() {
     const filter = layerSearchEl.value.trim().toLowerCase();
     layerListEl.innerHTML = "";
     const layers = current ? current.style.layers : [];
-    const matches = layers.filter((ly) => !filter || ly.id.toLowerCase().includes(filter));
-    if (matches.length === 0) {
-      const empty = document.createElement("div");
-      empty.id = "layer-empty";
-      empty.textContent = layers.length === 0 ? "Nothing loaded yet." : "No layers match that filter.";
-      layerListEl.appendChild(empty);
+    if (layers.length === 0) {
+      layerListEl.appendChild(emptyMessage("Nothing loaded yet."));
       return;
     }
-    for (const ly of matches) {
-      const row = document.createElement("div");
-      row.className = "layer-row" + (ly.id === selectedLayerId ? " is-selected" : "");
-      row.setAttribute("role", "button");
-      row.tabIndex = 0;
+    if (!current.serviceOriginals) {
+      renderFlatList(layers, filter);
+      return;
+    }
+    let anyMatch = false;
+    for (const service of SERVICE_ORDER) {
+      const inService = layers.filter((ly) => ly.metadata && ly.metadata["ugrc:service"] === service);
+      if (inService.length === 0) continue;
+      const matches = inService.filter((ly) => !filter || ly.id.toLowerCase().includes(filter));
+      if (matches.length > 0) anyMatch = true;
+      const isOpen = filter ? matches.length > 0 : service === openService;
+      layerListEl.appendChild(renderServiceSection(service, inService.length, matches, isOpen));
+    }
+    if (filter && !anyMatch) layerListEl.appendChild(emptyMessage("No layers match that filter."));
+  }
 
-      const visible = document.createElement("input");
-      visible.type = "checkbox";
-      visible.title = "Toggle visibility";
-      visible.checked = !(ly.layout && ly.layout.visibility === "none");
-      visible.addEventListener("click", (e) => e.stopPropagation());
-      visible.addEventListener("change", () => {
-        ly.layout = ly.layout || {};
-        ly.layout.visibility = visible.checked ? "visible" : "none";
-        map.setLayoutProperty(ly.id, "visibility", ly.layout.visibility);
-        idEl.classList.toggle("is-hidden-layer", !visible.checked);
-        markLayerChecked(ly);
+  function renderFlatList(layers, filter) {
+    const matches = layers.filter((ly) => !filter || ly.id.toLowerCase().includes(filter));
+    if (matches.length === 0) {
+      layerListEl.appendChild(emptyMessage("No layers match that filter."));
+      return;
+    }
+    for (const ly of matches) layerListEl.appendChild(renderLayerRow(ly, null));
+  }
+
+  function renderServiceSection(service, totalCount, matches, isOpen) {
+    const section = document.createElement("div");
+    section.className = "service-section";
+
+    const header = document.createElement("button");
+    header.type = "button";
+    header.className = "service-header";
+    header.setAttribute("aria-expanded", String(isOpen));
+    const chevron = document.createElement("span");
+    chevron.className = "service-chevron";
+    chevron.textContent = isOpen ? "▾" : "▸";
+    const name = document.createElement("span");
+    name.className = "service-name";
+    name.textContent = service;
+    const count = document.createElement("span");
+    count.className = "service-count";
+    count.textContent = String(totalCount);
+    header.append(chevron, name, count);
+    // Inert while a filter is active (isOpen then follows matches, not openService) - clearing
+    // the filter first is how you get manual accordion control back.
+    header.addEventListener("click", () => {
+      openService = openService === service ? null : service;
+      renderLayerList();
+    });
+    section.appendChild(header);
+
+    const body = document.createElement("div");
+    body.className = "service-body";
+    body.hidden = !isOpen;
+    for (const ly of matches) body.appendChild(renderLayerRow(ly, service));
+    section.appendChild(body);
+    return section;
+  }
+
+  /** `service` is the accordion section this row lives in - drag-to-reorder is wired up only when
+   * it's given (STYLE_EDITOR_PLAN.md §6: reordering is scoped to within one service, since a
+   * cross-service order can't survive the 3-file export). Passed null for the flat/upload list,
+   * which also has no per-row service tag since there's no section header to make it redundant. */
+  function renderLayerRow(ly, service) {
+    const row = document.createElement("div");
+    row.className = "layer-row" + (ly.id === selectedLayerId ? " is-selected" : "");
+    row.setAttribute("role", "button");
+    row.tabIndex = 0;
+
+    if (service) {
+      row.draggable = true;
+      const handle = document.createElement("span");
+      handle.className = "drag-handle";
+      handle.setAttribute("aria-hidden", "true");
+      handle.textContent = "⠿";
+      row.appendChild(handle);
+      row.addEventListener("dragstart", (e) => {
+        draggingId = ly.id;
+        draggingService = service;
+        e.dataTransfer.effectAllowed = "move";
+        row.classList.add("is-dragging");
       });
-      row.appendChild(visible);
+      row.addEventListener("dragend", () => {
+        row.classList.remove("is-dragging");
+        draggingId = null;
+        draggingService = null;
+      });
+      row.addEventListener("dragover", (e) => {
+        if (draggingService !== service) return;
+        e.preventDefault();
+        row.classList.add("drag-over");
+      });
+      row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+      row.addEventListener("drop", (e) => {
+        e.preventDefault();
+        row.classList.remove("drag-over");
+        if (draggingService !== service || draggingId == null || draggingId === ly.id) return;
+        reorderWithinService(service, draggingId, ly.id);
+      });
+    }
 
-      const service = ly.metadata && ly.metadata["ugrc:service"];
-      if (service) {
+    const visible = document.createElement("input");
+    visible.type = "checkbox";
+    visible.title = "Toggle visibility";
+    visible.checked = !(ly.layout && ly.layout.visibility === "none");
+    visible.addEventListener("click", (e) => e.stopPropagation());
+    visible.addEventListener("change", () => {
+      ly.layout = ly.layout || {};
+      ly.layout.visibility = visible.checked ? "visible" : "none";
+      map.setLayoutProperty(ly.id, "visibility", ly.layout.visibility);
+      idEl.classList.toggle("is-hidden-layer", !visible.checked);
+      markLayerChecked(ly);
+    });
+    row.appendChild(visible);
+
+    if (!service) {
+      const tagService = ly.metadata && ly.metadata["ugrc:service"];
+      if (tagService) {
         const tag = document.createElement("span");
         tag.className = "layer-tag";
-        tag.textContent = { VectorHillshade: "VH", LiteBase: "LB", LiteLabels: "LL" }[service] || service.slice(0, 2).toUpperCase();
+        tag.textContent = SERVICE_ABBR[tagService] || tagService.slice(0, 2).toUpperCase();
         row.appendChild(tag);
       }
-
-      const swatch = dominantSwatch(ly);
-      if (swatch) {
-        const sw = document.createElement("span");
-        sw.className = "layer-swatch";
-        sw.style.background = swatch;
-        row.appendChild(sw);
-      }
-
-      const idEl = document.createElement("span");
-      idEl.className = "layer-id" + (!visible.checked ? " is-hidden-layer" : "");
-      idEl.textContent = ly.id;
-      row.appendChild(idEl);
-
-      row.addEventListener("click", () => selectLayer(ly.id));
-      row.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectLayer(ly.id); }
-      });
-      layerListEl.appendChild(row);
     }
+
+    const swatch = dominantSwatch(ly);
+    if (swatch) {
+      const sw = document.createElement("span");
+      sw.className = "layer-swatch";
+      sw.style.background = swatch;
+      row.appendChild(sw);
+    }
+
+    const idEl = document.createElement("span");
+    idEl.className = "layer-id" + (!visible.checked ? " is-hidden-layer" : "");
+    idEl.textContent = ly.id;
+    row.appendChild(idEl);
+
+    row.addEventListener("click", () => selectLayer(ly.id));
+    row.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectLayer(ly.id); }
+    });
+    return row;
+  }
+
+  /** Each service's layers occupy one contiguous run of `current.style.layers` (mergeStyles()
+   * appends a whole service's layers at a time, and no feature here adds/removes layers to break
+   * that up) - so reordering within a service is just finding that run's bounds, reordering the
+   * slice, and splicing it back into the same bounds. */
+  function reorderWithinService(service, draggedId, targetId) {
+    const layers = current.style.layers;
+    const indices = [];
+    layers.forEach((ly, i) => { if (ly.metadata && ly.metadata["ugrc:service"] === service) indices.push(i); });
+    if (indices.length === 0) return;
+    const start = indices[0], end = indices[indices.length - 1] + 1;
+    const sub = layers.slice(start, end);
+    const fromIdx = sub.findIndex((ly) => ly.id === draggedId);
+    const toIdx = sub.findIndex((ly) => ly.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const [moved] = sub.splice(fromIdx, 1);
+    sub.splice(toIdx, 0, moved);
+    layers.splice(start, end - start, ...sub);
+    orderChanged = layers.map((ly) => ly.id).join(" ") !== pristineOrder.join(" ");
+    map.setStyle(prepareForRender(current.style));
+    renderLayerList();
+    renderPropertyPanel();
+    updateChangedBadge();
   }
 
   function selectLayer(id) {
     selectedLayerId = id;
-    for (const row of layerListEl.children) {
-      const idEl = row.querySelector(".layer-id");
-      row.classList.toggle("is-selected", idEl && idEl.textContent === id);
-    }
+    const ly = current && current.style.layers.find((l) => l.id === id);
+    const service = ly && ly.metadata && ly.metadata["ugrc:service"];
+    if (service) openService = service; // keep the section open if the search box is cleared next
+    renderLayerList();
     renderPropertyPanel();
   }
 
@@ -656,8 +815,9 @@ async function main() {
 
   function resetAll() {
     if (!current || !confirm("Discard all edits and reload the current template?")) return;
-    current.style.layers = current.style.layers.map((ly) => JSON.parse(JSON.stringify(pristineLayersById.get(ly.id) || ly)));
+    current.style.layers = pristineOrder.map((id) => JSON.parse(JSON.stringify(pristineLayersById.get(id))));
     changedIds.clear();
+    orderChanged = false;
     map.setStyle(prepareForRender(current.style));
     renderLayerList(); renderPropertyPanel(); updateChangedBadge();
   }
