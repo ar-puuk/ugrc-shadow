@@ -309,14 +309,23 @@
   .cp-hue, .cp-alpha { width: 100%; }
   /* input[type="range"].cp-hue rather than plain .cp-hue: the generic input[type="range"] reset
      rules further down (higher specificity - element + attribute selector) would otherwise beat a
-     bare class selector's background-image regardless of which comes later in the file. */
-  input[type="range"].cp-hue,
-  input[type="range"].cp-hue::-webkit-slider-runnable-track,
+     bare class selector's background-image regardless of which comes later in the file.
+     -webkit-*/-moz-* pseudo-elements are deliberately each their OWN rule, never combined in one
+     comma-separated selector list: a browser that doesn't recognize even one selector in such a
+     list drops the ENTIRE rule, not just the branch it doesn't understand - so combining them
+     would make Chrome discard the whole thing over the unknown ::-moz-range-track, and Firefox
+     discard it over the unknown ::-webkit-slider-runnable-track. */
+  input[type="range"].cp-hue::-webkit-slider-runnable-track {
+    background-image: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  }
   input[type="range"].cp-hue::-moz-range-track {
     background-image: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
   }
-  input[type="range"].cp-alpha,
-  input[type="range"].cp-alpha::-webkit-slider-runnable-track,
+  input[type="range"].cp-alpha::-webkit-slider-runnable-track {
+    background-image: var(--cp-tint, none), var(--checker-bg);
+    background-size: auto, 8px 8px, 8px 8px, 8px 8px, 8px 8px;
+    background-position: 0 0, 0 0, 0 4px, 4px -4px, -4px 0;
+  }
   input[type="range"].cp-alpha::-moz-range-track {
     background-image: var(--cp-tint, none), var(--checker-bg);
     background-size: auto, 8px 8px, 8px 8px, 8px 8px, 8px 8px;
