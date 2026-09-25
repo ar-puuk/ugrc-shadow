@@ -379,6 +379,38 @@
   #map-wrap { flex: 1; position: relative; min-width: 0; }
   #map { position: absolute; inset: 0; }
 
+  /* Element inspector: a hover tooltip naming the topmost feature under the cursor, and a
+     click-locked panel listing every layer stacked at that point (see InspectControl / setInspectMode
+     in the script below). Both are plain absolutely-positioned siblings of #map inside #map-wrap,
+     positioned in JS from the pointer event's own pixel coords - same popover-card look as the
+     maplibregl controls (.maplibregl-ctrl-group above) so they read as part of the same chrome. */
+  .inspect-tooltip {
+    position: absolute; z-index: 8; pointer-events: none;
+    padding: 3px 7px; border-radius: calc(var(--radius) - 2px);
+    background: hsl(var(--popover)); color: hsl(var(--popover-foreground));
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 2px 4px hsl(var(--foreground) / 0.08), 0 6px 14px hsl(var(--foreground) / 0.12);
+    font-size: 11.5px; font-family: monospace; white-space: nowrap;
+  }
+  .inspect-panel {
+    position: absolute; z-index: 8; min-width: 180px; max-width: 320px; max-height: 260px;
+    overflow-y: auto; border-radius: var(--radius);
+    background: hsl(var(--popover)); color: hsl(var(--popover-foreground));
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 4px 6px hsl(var(--foreground) / 0.05), 0 10px 24px hsl(var(--foreground) / 0.12);
+  }
+  .inspect-panel-empty { padding: 10px 12px; color: hsl(var(--muted-foreground)); font-size: 12.5px; }
+  .inspect-panel-row {
+    display: block; width: 100%; padding: 6px 10px; border: none; border-bottom: 1px solid hsl(var(--border) / 0.5);
+    background: transparent; color: inherit; text-align: left; cursor: pointer;
+  }
+  .inspect-panel-row:last-child { border-bottom: none; }
+  .inspect-panel-row:hover, .inspect-panel-row:focus-visible { background: hsl(var(--muted) / 0.6); outline: none; }
+  .inspect-panel-row-id {
+    display: block; font-size: 12px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .inspect-panel-row-meta { display: block; font-size: 10.5px; color: hsl(var(--muted-foreground)); margin-top: 1px; }
+
   #prop-body { flex: 1; overflow-y: auto; padding: 12px; }
   .prop-empty { color: hsl(var(--muted-foreground)); font-size: 13px; }
   /* Same head-row idiom as .prop-row-head below (a label sharing one flex row with the action
@@ -687,6 +719,9 @@
   .ugrc-ctrl-icon-btn { display: flex !important; align-items: center; justify-content: center; }
   .maplibregl-ctrl-group button:hover { background-color: hsl(var(--foreground) / 0.06) !important; }
   .maplibregl-ctrl-group button + button { border-top: 1px solid hsl(var(--foreground) / 0.1) !important; }
+  /* Same "on" look as .footer-coords-toggle[aria-pressed] - used by InspectControl below so its
+     button reads as toggled on while inspect mode is active. */
+  .maplibregl-ctrl-group button[aria-pressed="true"] { background-color: hsl(var(--ring) / 0.15) !important; color: hsl(var(--ring)); }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) .maplibregl-ctrl-icon { filter: invert(1) brightness(1.2); }
   }
@@ -1037,6 +1072,8 @@
         <div class="spinner" aria-hidden="true"></div>
         <span id="status-text">Loading…</span>
       </div>
+      <div id="inspect-tooltip" class="inspect-tooltip" hidden></div>
+      <div id="inspect-panel" class="inspect-panel" hidden></div>
     </div>
 
     <div id="prop-panel-resize" class="panel-resize" role="separator" aria-orientation="vertical" aria-label="Resize property panel" tabindex="0"></div>
@@ -1720,6 +1757,45 @@ class TiltResetControl {
   }
 }
 
+/** Toggle control for the map's hover/click feature inspector (see setInspectMode() in main()
+ * below), dropped below the tilt-reset control. Owns only its own pressed/icon state - the actual
+ * hover-tooltip/click-panel wiring lives in main() and is driven by the onToggle callback, so this
+ * stays a plain MapLibre control like TiltResetControl above. `_active` is kept on the instance
+ * (not just the button's aria-pressed) because relocateControls() during compare mode calls onAdd()
+ * again, which rebuilds the button from scratch - reading `_active` back into the new button is what
+ * keeps the pressed look correct across that move. */
+class InspectControl {
+  constructor(onToggle) {
+    this._onToggle = onToggle;
+    this._active = false;
+  }
+  onAdd(map) {
+    this._map = map;
+    this._container = document.createElement("div");
+    this._container.className = "maplibregl-ctrl maplibregl-ctrl-group";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ugrc-ctrl-icon-btn";
+    btn.setAttribute("aria-pressed", String(this._active));
+    btn.title = this._active ? "Stop inspecting (Esc)" : "Inspect map features";
+    btn.setAttribute("aria-label", "Inspect map features");
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>';
+    btn.addEventListener("click", () => this._onToggle(!this._active));
+    this._btn = btn;
+    this._container.appendChild(btn);
+    return this._container;
+  }
+  onRemove() {
+    this._container.parentNode?.removeChild(this._container);
+    this._map = null;
+  }
+  setActive(active) {
+    this._active = active;
+    this._btn.setAttribute("aria-pressed", String(active));
+    this._btn.title = active ? "Stop inspecting (Esc)" : "Inspect map features";
+  }
+}
+
 async function main() {
   const statusEl = document.getElementById("status");
   const statusText = document.getElementById("status-text");
@@ -1778,8 +1854,10 @@ async function main() {
   map.addControl(navControl, "top-right");
   const tiltResetControl = new TiltResetControl();
   map.addControl(tiltResetControl, "top-right");
+  const inspectControl = new InspectControl((active) => setInspectMode(active));
+  map.addControl(inspectControl, "top-right");
   const topLeftControls = [geocoderControl];
-  const topRightControls = [navControl, tiltResetControl];
+  const topRightControls = [navControl, tiltResetControl, inspectControl];
   map.on("error", (e) => console.error("[editor] MapLibre error:", e && e.error));
 
   // Marks a geocoder result on both `map` (always) and compareMap (whenever one exists) - one real
@@ -1861,6 +1939,114 @@ async function main() {
     footerFollowBtn.setAttribute("aria-pressed", String(followCursor));
     footerFollowBtn.title = followCursor ? "Following your cursor (click to go back to the view's center)" : "Follow cursor";
     refreshFooterCoords();
+  });
+
+  // Element inspector: while active (InspectControl above, or Esc to leave), hovering the live map
+  // shows a small tooltip naming the topmost rendered feature's layer under the cursor; clicking
+  // locks a panel listing every layer stacked at that point (topmost first, deduped - a filled
+  // polygon and its casing can both cover the same pixel many times over), each row jumping straight
+  // to that layer via selectLayer() the same way clicking it in the Layers panel would. The point is
+  // finding which layer id to edit, not reading raw GeoJSON, so this only ever queries `map` (the
+  // live, editable style) - never compareMap, whose style isn't something you can jump to an editor
+  // for. Raster/background/hillshade layers never produce a hit here (MapLibre can't query them,
+  // only vector fill/line/symbol/circle geometry) - clicking open water or hillshade-only ground
+  // correctly reports no features rather than silently doing nothing.
+  const mapWrapEl = document.getElementById("map-wrap");
+  const inspectTooltipEl = document.getElementById("inspect-tooltip");
+  const inspectPanelEl = document.getElementById("inspect-panel");
+  let inspectMode = false;
+  let inspectHoverQueued = false;
+  let lastInspectPoint = null;
+
+  // Clamps rather than flips to the cursor's other side - simpler, and this tool is only ever used
+  // deliberately (not something glanced at in passing), so a panel nudged a few px off its "natural"
+  // corner near an edge is a fine tradeoff for the extra flip-logic this skips.
+  function positionInspectFloating(el, point) {
+    const wrap = mapWrapEl.getBoundingClientRect();
+    const w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = `${Math.max(8, Math.min(point.x + 14, wrap.width - w - 8))}px`;
+    el.style.top = `${Math.max(8, Math.min(point.y + 14, wrap.height - h - 8))}px`;
+  }
+  function dedupeFeaturesByLayer(features) {
+    const seen = new Set();
+    const out = [];
+    for (const f of features) {
+      if (seen.has(f.layer.id)) continue;
+      seen.add(f.layer.id);
+      out.push(f);
+    }
+    return out;
+  }
+  function onInspectHover(e) {
+    lastInspectPoint = e.point;
+    if (inspectHoverQueued) return;
+    inspectHoverQueued = true;
+    requestAnimationFrame(() => {
+      inspectHoverQueued = false;
+      if (!inspectMode) return;
+      const features = map.queryRenderedFeatures(lastInspectPoint);
+      if (features.length === 0) { inspectTooltipEl.hidden = true; return; }
+      const extra = features.length > 1 ? ` +${dedupeFeaturesByLayer(features).length - 1} more` : "";
+      inspectTooltipEl.textContent = features[0].layer.id + extra;
+      inspectTooltipEl.hidden = false;
+      positionInspectFloating(inspectTooltipEl, lastInspectPoint);
+    });
+  }
+  function onInspectLeave() {
+    inspectTooltipEl.hidden = true;
+  }
+  function renderInspectPanel(features, point) {
+    const rows = dedupeFeaturesByLayer(features);
+    inspectPanelEl.innerHTML = "";
+    if (rows.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "inspect-panel-empty";
+      empty.textContent = "No queryable features here (raster/background layers can't be inspected).";
+      inspectPanelEl.appendChild(empty);
+    }
+    for (const f of rows) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "inspect-panel-row";
+      const id = document.createElement("span");
+      id.className = "inspect-panel-row-id";
+      id.textContent = f.layer.id;
+      const meta = document.createElement("span");
+      meta.className = "inspect-panel-row-meta";
+      meta.textContent = f.sourceLayer ? `${f.layer.type} · ${f.sourceLayer}` : f.layer.type;
+      row.append(id, meta);
+      row.addEventListener("click", () => {
+        layerSearchEl.value = ""; // clear any filter that would otherwise hide the jumped-to row
+        selectLayer(f.layer.id); // re-renders the layer list itself, against the now-cleared filter
+        inspectPanelEl.hidden = true;
+      });
+      inspectPanelEl.appendChild(row);
+    }
+    inspectPanelEl.hidden = false;
+    positionInspectFloating(inspectPanelEl, point);
+  }
+  function onInspectClick(e) {
+    inspectTooltipEl.hidden = true;
+    renderInspectPanel(map.queryRenderedFeatures(e.point), e.point);
+  }
+  function setInspectMode(active) {
+    inspectMode = active;
+    inspectControl.setActive(active);
+    map.getCanvas().style.cursor = active ? "crosshair" : "";
+    inspectTooltipEl.hidden = true;
+    inspectPanelEl.hidden = true;
+    if (active) {
+      map.on("mousemove", onInspectHover);
+      map.on("mouseleave", onInspectLeave);
+      map.on("click", onInspectClick);
+    } else {
+      map.off("mousemove", onInspectHover);
+      map.off("mouseleave", onInspectLeave);
+      map.off("click", onInspectClick);
+    }
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && inspectMode) setInspectMode(false);
   });
 
   // Mutable editor state. `current.style` is the live, possibly-edited merged style (the same
