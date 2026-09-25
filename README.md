@@ -9,14 +9,26 @@ holds more than one style, developed side by side:
   using UGRC's `Vector_Overlay` sprite (the colorful icon set built for their Hybrid basemap)
   in place of LiteBase/LiteLabels' own muted grayscale icons.
 
-**[Try it live →](https://ar-puuk.github.io/ugrc-styles/)** <!-- update once Pages is live -->
+**[Try it live →](https://ar-puuk.github.io/ugrc-styles/)**
 A browser-only visual editor for customizing any built-in theme (or your own uploaded style):
-browse layers grouped by service and by the same groups UGRC's own layer ids encode (e.g.
-"PARKS & REC"), edit colors/opacity/numbers/enums/filters/zoom ranges, reorder layers within a
-service, and download either one combined style JSON or the 3 separate
-`VectorHillshade`/`LiteBase`/`LiteLabels` files matching how UGRC actually hosts these. A
-A "Compare against" picker in the header swipes your in-progress edit against any theme, UGRC's own
-live basemap, or your upload. Nothing you do here feeds back into this repo's build — see
+
+- Browse layers grouped by service and by the same groups UGRC's own layer ids encode (e.g.
+  "PARKS & REC"), search/filter by id, and reorder layers within a service.
+- Edit colors/opacity/numbers/enums/filters/zoom ranges, with a raw-JSON fallback for anything
+  the visual editor doesn't cover. A property that's split across several zoom-band layers (common
+  in UGRC's own data — e.g. one road class split into a dozen-plus copies) can be edited once and
+  applied to every other layer that currently shares that exact value, instead of repeating the
+  edit by hand.
+- Click the inspect tool, then hover or click anywhere on the map to see which layer is drawing
+  what's under the cursor, and jump straight to it in the editor.
+- A "Compare against" picker in the header swipes your in-progress edit against any theme, UGRC's
+  own live basemap, or your upload, with an address search box and a live coordinates readout on
+  either map.
+- Crash-recovery autosave, light/dark/system theme, and resizable side panels.
+- Download either one combined style JSON or the 3 separate
+  `VectorHillshade`/`LiteBase`/`LiteLabels` files matching how UGRC actually hosts these.
+
+Nothing you do here feeds back into this repo's build — see
 [`STYLE_EDITOR_PLAN.md`](STYLE_EDITOR_PLAN.md) for the design.
 
 ## What this is
@@ -47,6 +59,7 @@ docs/
   assets/
     styles.js              # style loading/merging/splitting, split out of index.html's own script
     dropdown.js            # the custom picker combobox, same reason
+    colorpicker.js         # the shadcn/ui-style color popover, same reason
   themes.json              # generated: theme labels + where each one's style JSONs live
   <theme>/
     styles/UGRC_<Service>_<theme>.json
@@ -79,6 +92,82 @@ standalone MapLibre style JSON and sprite sheets, with absolute tile/sprite/glyp
 filled in. Add all three style layers to a MapLibre map the same way you'd add UGRC's originals;
 no light/original equivalent is published here, since UGRC's own live services are already
 directly usable for that.
+
+## I downloaded a style JSON from the editor — now what?
+
+A style JSON isn't a picture of a map — it's a set of instructions ("draw roads this color, at
+this width, starting at this zoom") that a map library reads and renders *live*, still pulling the
+actual map data from UGRC's servers over the network. You need something that understands that
+format to see anything.
+
+**Fastest way to just look at it:** drop the file into
+[Maputnik](https://maplibre.org/maputnik/), a free browser-based style editor — no install, no
+code. If it complains about the tile source, that's the one UGRC-specific gotcha below; fix that
+first and it'll load.
+
+**To put it on your own web page**, you need [MapLibre GL
+JS](https://maplibre.org/maplibre-gl-js/docs/) (free, open source, no server-side component) and
+one small fixup first:
+
+> **The one gotcha:** the downloaded style's vector source is shaped the way Esri's ArcGIS
+> `VectorTileServer` publishes it (`"url": "https://tiles.arcgis.com/.../VectorTileServer/"`) —
+> Esri's own tools resolve that automatically, but MapLibre GL JS doesn't, and will fail with
+> `Failed to parse URL from tile/...`. Rewrite it into the `tiles` array MapLibre expects before
+> handing the style to `maplibregl.Map`:
+>
+> ```js
+> for (const [id, src] of Object.entries(style.sources)) {
+>   if (src.type === "vector" && typeof src.url === "string") {
+>     style.sources[id] = { ...src, tiles: [src.url + "tile/{z}/{y}/{x}.pbf"] };
+>     delete style.sources[id].url;
+>   }
+> }
+> ```
+>
+> (This is exactly what `toTilesSource()`/`prepareForRender()` in
+> [`docs/assets/styles.js`](docs/assets/styles.js) do for the live editor above — copy that
+> instead if you'd rather reuse tested code. One more minor wart from the same upstream data:
+> the source's own `attribution` field is literally the placeholder text `"me"` — harmless, but
+> worth overriding with your own `customAttribution` if you add MapLibre's attribution control.)
+
+A complete, working page — save as `.html`, point `fetch()` at whichever file you downloaded, open
+it in a browser:
+
+```html
+<!doctype html>
+<html>
+<head>
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>body { margin: 0; } #map { position: absolute; inset: 0; }</style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    fetch("./ugrc-lite-edited.json") // whatever you downloaded, next to this file
+      .then((r) => r.json())
+      .then((style) => {
+        for (const [id, src] of Object.entries(style.sources)) {
+          if (src.type === "vector" && typeof src.url === "string") {
+            style.sources[id] = { ...src, tiles: [src.url + "tile/{z}/{y}/{x}.pbf"] };
+            delete style.sources[id].url;
+          }
+        }
+        new maplibregl.Map({ container: "map", style, center: [-111.891, 40.761], zoom: 10 });
+      });
+  </script>
+</body>
+</html>
+```
+
+**Combined vs. the 3 separate files:** unless you specifically need UGRC's own native
+`VectorHillshade`/`LiteBase`/`LiteLabels` split (e.g. feeding a system that already expects that
+exact shape), download the **combined** style — it's the single file the snippet above expects,
+with nothing further to merge. The 3-file download reproduces UGRC's own per-service file shapes
+exactly, which is only useful if something else consumes that shape directly; recombining
+them into one usable style yourself means redoing the sprite-namespacing/source-merging the editor
+already does internally (see `mergeStyles()` in `docs/assets/styles.js`) — reach for the combined
+download instead unless you already know why you need the split one.
 
 ## Regenerating
 
