@@ -1759,6 +1759,21 @@ async function main() {
     marker: false,
   });
   map.addControl(geocoderControl, "top-left");
+  // The geocoder's own suggestion-click handling (in its bundled Suggestions/List code) sets an
+  // internal "selectingListItem" flag on a suggestion's mousedown, specifically so its input's own
+  // blur handler skips hiding the list while a click on it is in progress - clicking a suggestion
+  // isn't itself focusable, so mousedown on it would otherwise blur the input and hide the list
+  // out from under the click before mouseup/selection can complete. That protection only works if
+  // the browser fires the li's mousedown listener before it fires blur on the input, which isn't
+  // guaranteed - in practice this raced and lost consistently enough (confirmed: selecting a
+  // suggestion never fired the geocoder's "result" event, only ever the click-away/blur path) that
+  // real clicks on a suggestion just closed the list without ever selecting anything. Capturing
+  // mousedown ourselves and preventing its default here stops the browser from shifting focus (and
+  // therefore firing blur) at all when the target is a suggestion, which removes the race entirely
+  // regardless of listener order - not just a workaround for one browser's ordering.
+  document.addEventListener("mousedown", (e) => {
+    if (e.target.closest(".maplibregl-ctrl-geocoder .suggestions")) e.preventDefault();
+  }, true);
   const navControl = new maplibregl.NavigationControl();
   map.addControl(navControl, "top-right");
   const tiltResetControl = new TiltResetControl();
@@ -3161,11 +3176,16 @@ async function main() {
       compareMap.on("error", (e) => console.error("[compare] MapLibre error:", e && e.error));
       compareMap.on("mousemove", onMapPointerMove);
       compareMap.on("mouseout", onMapPointerOut);
-      if (lastGeocodeResultLngLat) setCompareResultMarker(lastGeocodeResultLngLat);
     } else {
       compareMap.setStyle(style);
       if (wasHidden) compareMap.resize();
     }
+    // Unconditional (not just on first creation) - a marker added the moment compareMap is
+    // constructed has occasionally failed to render for reasons that didn't reproduce under
+    // automated testing (possibly a layout/timing race in some browsers); re-asserting it on
+    // every call is cheap (setCompareResultMarker replaces any existing one) and self-heals
+    // regardless of the exact cause.
+    if (lastGeocodeResultLngLat) setCompareResultMarker(lastGeocodeResultLngLat);
     if (!compareInstance) {
       relocateTopControls(true);
       compareInstance = new maplibregl.Compare(map, compareMap, "#map-wrap", {});
