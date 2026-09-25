@@ -1780,13 +1780,11 @@ class InspectControl {
     btn.setAttribute("aria-pressed", String(this._active));
     btn.title = this._active ? "Stop inspecting (Esc)" : "Inspect map features";
     btn.setAttribute("aria-label", "Inspect map features");
-    // A file-with-magnifying-glass glyph (Lucide's "file-search", inlined - ISC licensed), not a
-    // crosshair or a bare magnifying glass: the footer's own "follow cursor" toggle
-    // (#footer-follow-cursor-btn) already owns the crosshair look, and a lone magnifying glass
-    // reads as "zoom" sitting right below the zoom +/- buttons. maplibre-gl-inspect's own toggle
-    // uses this same file+lens combination for the same reason - it reads as "inspect the data",
-    // not "zoom".
-    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><circle cx="11.5" cy="14.5" r="2.5"/><path d="M13.3 16.3 15 18"/></svg>';
+    // A stacked-layers glyph (Lucide's "layers", inlined - ISC licensed) - matches what this tool
+    // actually surfaces (which layer is under the cursor), and stays a clean, single-family shape
+    // like the footer's own crosshair rather than the busier file+lens combo tried first (which,
+    // fair, read as cluttered next to the rest of this toolbar's plain glyphs).
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></svg>';
     btn.addEventListener("click", () => this._onToggle(!this._active));
     this._btn = btn;
     this._container.appendChild(btn);
