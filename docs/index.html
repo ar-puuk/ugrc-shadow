@@ -728,6 +728,29 @@
   }
   :root[data-theme="dark"] .maplibregl-ctrl-icon { filter: invert(1) brightness(1.2); }
 
+  /* AttributionControl (bottom-right of the map, .maplibregl-ctrl-attrib) ships the same
+     hardcoded-light look as the geocoder below - white background, black text - plus its own
+     dark-gray (#333) background-image "i" icon with the same no-currentColor limitation
+     .maplibregl-ctrl-icon above has, so it gets the same invert-filter treatment. Only the
+     compact styling is touched (MAP_ATTRIBUTION always passes {compact: true}, so the
+     library's plain, non-compact layout never actually renders here) - `.maplibregl-compact`
+     covers both the collapsed pill and the clicked-open state, since opening only adds
+     `.maplibregl-compact-show` alongside it, never replaces it. */
+  .maplibregl-ctrl-attrib.maplibregl-compact {
+    background-color: hsl(var(--popover)) !important;
+    color: hsl(var(--popover-foreground));
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 4px 6px hsl(var(--foreground) / 0.05), 0 10px 24px hsl(var(--foreground) / 0.12);
+  }
+  .maplibregl-ctrl-attrib-button { background-color: transparent !important; }
+  .maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-button { background-color: hsl(var(--foreground) / 0.06) !important; }
+  .maplibregl-ctrl-attrib a { color: hsl(var(--foreground)); text-decoration: none; border-bottom: 1px solid hsl(var(--border)); }
+  .maplibregl-ctrl-attrib a:hover { color: hsl(var(--ring)); border-color: hsl(var(--ring)); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .maplibregl-ctrl-attrib-button { filter: invert(1) brightness(1.2); }
+  }
+  :root[data-theme="dark"] .maplibregl-ctrl-attrib-button { filter: invert(1) brightness(1.2); }
+
   /* maplibre-gl-geocoder ships its own hardcoded light styling (white background, #404040 text,
      Open Sans) with no theming hook at all - restyled here to match this page's shadcn-style
      popover chrome and Inter type, the same way .maplibregl-ctrl-group above is. Its icons are
@@ -815,6 +838,10 @@
   #compare-search-control {
     position: absolute; top: 10px; left: 10px; z-index: 4;
     display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  }
+  #compare-bottom-right-control {
+    position: absolute; bottom: 10px; right: 10px; z-index: 4;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
   }
   /* maplibre-gl-compare's own divider/handle sits on the MAP, not the page chrome, so it stays a
      fixed near-white/amber look regardless of the page's own light/dark mode - only
@@ -1073,6 +1100,7 @@
       <div id="compare-map" hidden></div>
       <div id="compare-search-control"></div>
       <div id="compare-nav-control"></div>
+      <div id="compare-bottom-right-control"></div>
       <div id="status">
         <div class="spinner" aria-hidden="true"></div>
         <span id="status-text">Loading…</span>
@@ -1120,6 +1148,14 @@ const colorPicker = new ColorPickerPopover();
 
 const CENTER = [-111.891, 40.761]; // Salt Lake City
 const ZOOM = 10;
+// Passed as `attributionControl.customAttribution` on every real (non-preview) map below - passing
+// an explicit array REPLACES AttributionControl's own default (which is just a "MapLibre" link, see
+// defaultAttributionControlOptions in maplibre-gl-js), so MapLibre's own credit has to be listed
+// here alongside UGRC's, not just relied on implicitly.
+const MAP_ATTRIBUTION = [
+  '<a href="https://gis.utah.gov/" target="_blank" rel="noopener">UGRC</a> basemap tiles',
+  '<a href="https://maplibre.org/" target="_blank" rel="noopener">MapLibre</a>',
+];
 const DEFAULT_TEMPLATE = ORIGINAL_KEY; // "Lite" - UGRC's own live basemap
 
 // The 3 services a built-in template's merged style is made of - the layer list is an accordion
@@ -1831,6 +1867,7 @@ async function main() {
   const compareMapEl = document.getElementById("compare-map");
   const compareNavControlEl = document.getElementById("compare-nav-control");
   const compareSearchControlEl = document.getElementById("compare-search-control");
+  const compareBottomRightControlEl = document.getElementById("compare-bottom-right-control");
 
   const map = new maplibregl.Map({
     container: "map",
@@ -1878,8 +1915,11 @@ async function main() {
   map.addControl(tiltResetControl, "top-right");
   const inspectControl = new InspectControl((active) => setInspectMode(active));
   map.addControl(inspectControl, "top-right");
+  const attributionControl = new maplibregl.AttributionControl({ compact: true, customAttribution: MAP_ATTRIBUTION });
+  map.addControl(attributionControl, "bottom-right");
   const topLeftControls = [geocoderControl];
   const topRightControls = [navControl, tiltResetControl, inspectControl];
+  const bottomRightControls = [attributionControl];
   map.on("error", (e) => console.error("[editor] MapLibre error:", e && e.error));
 
   // Marks a geocoder result on both `map` (always) and compareMap (whenever one exists) - one real
@@ -3352,9 +3392,10 @@ async function main() {
       }
     }
   }
-  function relocateTopControls(toShared) {
+  function relocateOwnControls(toShared) {
     relocateControls(topLeftControls, toShared, compareSearchControlEl, "top-left");
     relocateControls(topRightControls, toShared, compareNavControlEl, "top-right");
+    relocateControls(bottomRightControls, toShared, compareBottomRightControlEl, "bottom-right");
   }
 
   /** Applies a compare-picker selection: NONE_KEY tears the swipe view back down to a single map;
@@ -3365,7 +3406,7 @@ async function main() {
       if (compareInstance) {
         compareInstance.remove();
         compareInstance = null;
-        relocateTopControls(false);
+        relocateOwnControls(false);
       }
       compareMapEl.hidden = true;
       return;
@@ -3381,6 +3422,10 @@ async function main() {
       compareMap = new maplibregl.Map({
         container: "compare-map", style,
         center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(),
+        // Not its own AttributionControl - `map`'s single one (relocated to #compare-bottom-right
+        // while comparing, same as the nav/search controls above) already covers this: every
+        // template here comes from the same UGRC/MapLibre attribution regardless of which style
+        // compareMap is currently showing, so a second instance would just be a duplicate.
         attributionControl: false,
       });
       compareMap.on("error", (e) => console.error("[compare] MapLibre error:", e && e.error));
@@ -3397,7 +3442,7 @@ async function main() {
     // regardless of the exact cause.
     if (lastGeocodeResultLngLat) setCompareResultMarker(lastGeocodeResultLngLat);
     if (!compareInstance) {
-      relocateTopControls(true);
+      relocateOwnControls(true);
       compareInstance = new maplibregl.Compare(map, compareMap, "#map-wrap", {});
     }
   }

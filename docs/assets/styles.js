@@ -84,10 +84,16 @@ export function resolveThemeStyle(style, styleUrl) {
  * TileJSON - it errors with "Failed to parse URL from tile/...". Returns a NEW source object in
  * MapLibre's `tiles`-array shape for rendering; never mutates `src`, so the Esri-shaped original
  * (as fetched/absolutized) stays intact for later re-export (splitMergedStyle below). `src.url`
- * must already be absolute with a trailing slash (guaranteed by absolutize/resolveThemeStyle). */
+ * must already be absolute with a trailing slash (guaranteed by absolutize/resolveThemeStyle).
+ *
+ * Also drops `attribution` here (rendering only, never for the re-exported original): every one
+ * of UGRC's own hosted VectorTileServer roots (checked LiteBase, LiteLabels) sets it to the
+ * literal string "me" - some upstream template artifact, not real attribution text - which
+ * MapLibre's AttributionControl would otherwise surface verbatim. The app supplies its own
+ * correct UGRC/MapLibre credit via MAP_ATTRIBUTION (index.html) regardless. */
 function toTilesSource(src) {
   if (src.type !== "vector" || typeof src.url !== "string") return src;
-  const { url, ...rest } = src;
+  const { url, attribution, ...rest } = src;
   return { ...rest, tiles: [url + "tile/{z}/{y}/{x}.pbf"] };
 }
 
