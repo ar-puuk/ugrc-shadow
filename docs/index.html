@@ -312,25 +312,26 @@
   .search-input::placeholder { color: hsl(var(--muted-foreground)); }
 
   #layer-list { flex: 1; overflow-y: auto; }
-  /* Themed scrollbars for every scrolling panel in the app (the two side panels, plus the raw
-     Layer JSON box below - easy to miss since it's its own separately-scrolling element, not part
-     of #prop-body's own scroll) - Firefox via scrollbar-width/-color, WebKit/Blink via the
-     ::-webkit-scrollbar-* pseudo-elements (both needed; neither browser honors the other's API).
-     Both key off --border/--muted-foreground, so this follows light/dark/system automatically
-     with no separate light/dark rule of its own. */
-  #layer-list, #prop-body, .raw-json pre {
+  /* Themed scrollbars for every scrolling panel in the app (the two side panels, the raw Layer
+     JSON box below - easy to miss since it's its own separately-scrolling element, not part of
+     #prop-body's own scroll - and the inspect-mode click panel, which can overflow its own
+     260px max-height when many layers stack at one point) - Firefox via scrollbar-width/-color,
+     WebKit/Blink via the ::-webkit-scrollbar-* pseudo-elements (both needed; neither browser
+     honors the other's API). Both key off --border/--muted-foreground, so this follows
+     light/dark/system automatically with no separate light/dark rule of its own. */
+  #layer-list, #prop-body, .raw-json pre, .inspect-panel {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
   }
-  #layer-list::-webkit-scrollbar, #prop-body::-webkit-scrollbar, .raw-json pre::-webkit-scrollbar { width: 10px; }
-  #layer-list::-webkit-scrollbar-track, #prop-body::-webkit-scrollbar-track, .raw-json pre::-webkit-scrollbar-track { background: transparent; }
-  #layer-list::-webkit-scrollbar-thumb, #prop-body::-webkit-scrollbar-thumb, .raw-json pre::-webkit-scrollbar-thumb {
+  #layer-list::-webkit-scrollbar, #prop-body::-webkit-scrollbar, .raw-json pre::-webkit-scrollbar, .inspect-panel::-webkit-scrollbar { width: 10px; }
+  #layer-list::-webkit-scrollbar-track, #prop-body::-webkit-scrollbar-track, .raw-json pre::-webkit-scrollbar-track, .inspect-panel::-webkit-scrollbar-track { background: transparent; }
+  #layer-list::-webkit-scrollbar-thumb, #prop-body::-webkit-scrollbar-thumb, .raw-json pre::-webkit-scrollbar-thumb, .inspect-panel::-webkit-scrollbar-thumb {
     background-color: hsl(var(--border));
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: padding-box;
   }
-  #layer-list::-webkit-scrollbar-thumb:hover, #prop-body::-webkit-scrollbar-thumb:hover, .raw-json pre::-webkit-scrollbar-thumb:hover {
+  #layer-list::-webkit-scrollbar-thumb:hover, #prop-body::-webkit-scrollbar-thumb:hover, .raw-json pre::-webkit-scrollbar-thumb:hover, .inspect-panel::-webkit-scrollbar-thumb:hover {
     background-color: hsl(var(--muted-foreground) / 0.6);
   }
   .service-header {
