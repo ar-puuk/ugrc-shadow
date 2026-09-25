@@ -407,6 +407,10 @@
   }
   .inspect-panel-row:last-child { border-bottom: none; }
   .inspect-panel-row:hover, .inspect-panel-row:focus-visible { background: hsl(var(--muted) / 0.6); outline: none; }
+  /* A row for a layer that only exists in the comparison map's own reference style - nothing to
+     jump to in this editor, so it's a plain <div>, not a <button>: no pointer cursor, no hover
+     highlight, dimmed to read as informational rather than actionable. */
+  .inspect-panel-row.is-reference { cursor: default; opacity: .6; }
   .inspect-panel-row-id {
     display: block; font-size: 12px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
@@ -1924,6 +1928,7 @@ async function main() {
   const topRightControls = [navControl, tiltResetControl, inspectControl];
   const bottomRightControls = [attributionControl];
   map.on("error", (e) => console.error("[editor] MapLibre error:", e && e.error));
+  bindInspectHandlers(map);
 
   // Marks a geocoder result on both `map` (always) and compareMap (whenever one exists) - one real
   // maplibregl.Marker per map, each added directly to that map (not routed through the geocoder
@@ -2006,22 +2011,28 @@ async function main() {
     refreshFooterCoords();
   });
 
-  // Element inspector: while active (InspectControl above, or Esc to leave), hovering the live map
+  // Element inspector: while active (InspectControl above, or Esc to leave), hovering either map
   // shows a small tooltip naming the topmost rendered feature's layer under the cursor; clicking
   // locks a panel listing every layer stacked at that point (topmost first, deduped - a filled
-  // polygon and its casing can both cover the same pixel many times over), each row jumping straight
-  // to that layer via selectLayer() the same way clicking it in the Layers panel would. The point is
-  // finding which layer id to edit, not reading raw GeoJSON, so this only ever queries `map` (the
-  // live, editable style) - never compareMap, whose style isn't something you can jump to an editor
-  // for. Raster/background/hillshade layers never produce a hit here (MapLibre can't query them,
-  // only vector fill/line/symbol/circle geometry) - clicking open water or hillshade-only ground
-  // correctly reports no features rather than silently doing nothing.
+  // polygon and its casing can both cover the same pixel many times over). A row jumps straight to
+  // that layer via selectLayer() (the same way clicking it in the Layers panel would) only when its
+  // id actually exists in `current.style.layers` - always true for `map` (the live, editable
+  // style), but a row that came from compareMap's own, possibly-different reference style may not
+  // have a match there, in which case the row stays informational (id/type/source-layer only, no
+  // jump). Listeners are bound once to each map that exists (`map` always; compareMap as soon as
+  // it's created, in setCompareTarget below) and gate on `inspectMode` themselves, rather than
+  // being added/removed per map on every toggle - simpler given compareMap only exists once compare
+  // mode has actually been turned on at least once. Raster/background/hillshade layers never
+  // produce a hit here (MapLibre can't query them, only vector fill/line/symbol/circle geometry) -
+  // clicking open water or hillshade-only ground correctly reports no features rather than silently
+  // doing nothing.
   const mapWrapEl = document.getElementById("map-wrap");
   const inspectTooltipEl = document.getElementById("inspect-tooltip");
   const inspectPanelEl = document.getElementById("inspect-panel");
   let inspectMode = false;
   let inspectHoverQueued = false;
   let lastInspectPoint = null;
+  let lastInspectMap = null;
 
   // Clamps rather than flips to the cursor's other side - simpler, and this tool is only ever used
   // deliberately (not something glanced at in passing), so a panel nudged a few px off its "natural"
@@ -2043,13 +2054,15 @@ async function main() {
     return out;
   }
   function onInspectHover(e) {
+    if (!inspectMode) return;
     lastInspectPoint = e.point;
+    lastInspectMap = e.target;
     if (inspectHoverQueued) return;
     inspectHoverQueued = true;
     requestAnimationFrame(() => {
       inspectHoverQueued = false;
       if (!inspectMode) return;
-      const features = map.queryRenderedFeatures(lastInspectPoint);
+      const features = lastInspectMap.queryRenderedFeatures(lastInspectPoint);
       if (features.length === 0) { inspectTooltipEl.hidden = true; return; }
       const extra = features.length > 1 ? ` +${dedupeFeaturesByLayer(features).length - 1} more` : "";
       inspectTooltipEl.textContent = features[0].layer.id + extra;
@@ -2058,6 +2071,7 @@ async function main() {
     });
   }
   function onInspectLeave() {
+    if (!inspectMode) return;
     inspectTooltipEl.hidden = true;
   }
   function renderInspectPanel(features, point) {
@@ -2070,9 +2084,13 @@ async function main() {
       inspectPanelEl.appendChild(empty);
     }
     for (const f of rows) {
-      const row = document.createElement("button");
-      row.type = "button";
-      row.className = "inspect-panel-row";
+      // Only a row whose layer id is actually in the style being edited can jump anywhere - one
+      // from compareMap's own reference style (which may not match at all) renders as plain,
+      // non-interactive text instead of a dead or misleading button.
+      const inCurrentStyle = current && current.style.layers.some((ly) => ly.id === f.layer.id);
+      const row = document.createElement(inCurrentStyle ? "button" : "div");
+      if (inCurrentStyle) row.type = "button";
+      row.className = "inspect-panel-row" + (inCurrentStyle ? "" : " is-reference");
       const id = document.createElement("span");
       id.className = "inspect-panel-row-id";
       id.textContent = f.layer.id;
@@ -2080,35 +2098,41 @@ async function main() {
       meta.className = "inspect-panel-row-meta";
       meta.textContent = f.sourceLayer ? `${f.layer.type} · ${f.sourceLayer}` : f.layer.type;
       row.append(id, meta);
-      row.addEventListener("click", () => {
-        layerSearchEl.value = ""; // clear any filter that would otherwise hide the jumped-to row
-        selectLayer(f.layer.id); // re-renders the layer list itself, against the now-cleared filter
-        inspectPanelEl.hidden = true;
-      });
+      if (inCurrentStyle) {
+        row.addEventListener("click", () => {
+          layerSearchEl.value = ""; // clear any filter that would otherwise hide the jumped-to row
+          selectLayer(f.layer.id); // re-renders the layer list, against the now-cleared filter
+          inspectPanelEl.hidden = true;
+        });
+      } else {
+        row.title = "Not in the style you're editing - from the comparison map's own reference style.";
+      }
       inspectPanelEl.appendChild(row);
     }
     inspectPanelEl.hidden = false;
     positionInspectFloating(inspectPanelEl, point);
   }
   function onInspectClick(e) {
+    if (!inspectMode) return;
     inspectTooltipEl.hidden = true;
-    renderInspectPanel(map.queryRenderedFeatures(e.point), e.point);
+    renderInspectPanel(e.target.queryRenderedFeatures(e.point), e.point);
+  }
+  /** Binds the inspector's hover/click handlers to a map - called once for `map` (below) and once
+   * more for compareMap the moment it's created (setCompareTarget), since it doesn't exist until
+   * compare mode is turned on at least once. Each handler gates on `inspectMode` itself (see
+   * above), so binding is one-time setup, not something toggled per map on every mode switch. */
+  function bindInspectHandlers(m) {
+    m.on("mousemove", onInspectHover);
+    m.on("mouseleave", onInspectLeave);
+    m.on("click", onInspectClick);
   }
   function setInspectMode(active) {
     inspectMode = active;
     inspectControl.setActive(active);
     map.getCanvas().style.cursor = active ? "crosshair" : "";
+    if (compareMap) compareMap.getCanvas().style.cursor = active ? "crosshair" : "";
     inspectTooltipEl.hidden = true;
     inspectPanelEl.hidden = true;
-    if (active) {
-      map.on("mousemove", onInspectHover);
-      map.on("mouseleave", onInspectLeave);
-      map.on("click", onInspectClick);
-    } else {
-      map.off("mousemove", onInspectHover);
-      map.off("mouseleave", onInspectLeave);
-      map.off("click", onInspectClick);
-    }
   }
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && inspectMode) setInspectMode(false);
@@ -3434,6 +3458,10 @@ async function main() {
       compareMap.on("error", (e) => console.error("[compare] MapLibre error:", e && e.error));
       compareMap.on("mousemove", onMapPointerMove);
       compareMap.on("mouseout", onMapPointerOut);
+      bindInspectHandlers(compareMap);
+      // setInspectMode() already ran (if ever) before compareMap existed, so it never had a
+      // chance to set this map's own cursor - assert it now if inspect mode is currently active.
+      if (inspectMode) compareMap.getCanvas().style.cursor = "crosshair";
     } else {
       compareMap.setStyle(style);
       if (wasHidden) compareMap.resize();
