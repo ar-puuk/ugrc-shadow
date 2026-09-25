@@ -2840,7 +2840,7 @@ async function main() {
         else linkedPropertyEdits.delete(linkKey);
       });
       linkRow.append(checkbox, document.createTextNode(
-        ` Also apply to ${siblings.length} other layer${siblings.length === 1 ? "" : "s"} sharing this value`
+        ` Also apply to ${siblings.length} sibling layer${siblings.length === 1 ? "" : "s"}`
       ));
       row.appendChild(linkRow);
     }
