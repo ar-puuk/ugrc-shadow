@@ -1780,7 +1780,11 @@ class InspectControl {
     btn.setAttribute("aria-pressed", String(this._active));
     btn.title = this._active ? "Stop inspecting (Esc)" : "Inspect map features";
     btn.setAttribute("aria-label", "Inspect map features");
-    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>';
+    // A magnifying glass, not a crosshair - the footer's own "follow cursor" toggle
+    // (#footer-follow-cursor-btn) already owns a crosshair glyph, and the two buttons do
+    // unrelated things (recentering the coordinates readout vs. querying map features), so
+    // sharing a look between them would read as the same control in two places.
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
     btn.addEventListener("click", () => this._onToggle(!this._active));
     this._btn = btn;
     this._container.appendChild(btn);
