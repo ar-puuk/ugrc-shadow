@@ -984,10 +984,14 @@
 
       <div class="dd" id="template-dd">
         <button type="button" class="dd-button" aria-haspopup="listbox" aria-expanded="false" aria-label="Start from">
+          <!-- Plain "no specific theme yet" placeholder - refreshTemplateDdIcon() in the script
+               below swaps this to the selected template's own THEME_ICONS glyph (sun/moon/flame)
+               once one is actually loaded, falling back to this file glyph only for an uploaded
+               style (which matches no template key, so there's no theme icon to show). Never the
+               stacked-layers shape InspectControl now uses - see that class for why. -->
           <svg class="dd-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polygon points="12 3 21 8.5 12 14 3 8.5 12 3"/>
-            <polyline points="3 15.5 12 21 21 15.5"/>
-            <polyline points="3 12 12 17.5 21 12"/>
+            <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
+            <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
           </svg>
           <span class="dd-button-label"></span>
           <svg class="dd-chevron" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
@@ -1805,6 +1809,19 @@ async function main() {
   const statusEl = document.getElementById("status");
   const statusText = document.getElementById("status-text");
   const templatePick = new Dropdown(document.getElementById("template-dd"));
+  // The "Start from" trigger's own leading icon, kept in sync with whichever template is actually
+  // selected (each THEME_ICONS glyph) - as opposed to Dropdown's per-option icons (opt.icon, shown
+  // inside the open menu), which it already handles on its own. Always themeIconSvg()'s plain
+  // glyph, never opt.icon - primeThemeThumbnails() may have since replaced opt.icon with a
+  // captured screenshot for the menu rows, which would look muddy shrunk to this 15px trigger icon
+  // (same reasoning as the welcome modal's card backs, above). Falls back to the static file glyph
+  // already in the HTML for an upload, which matches no template key.
+  const templateDdIconEl = document.querySelector("#template-dd .dd-icon");
+  const DEFAULT_TEMPLATE_DD_ICON = templateDdIconEl.innerHTML;
+  function refreshTemplateDdIcon() {
+    templateDdIconEl.innerHTML = (templatePick.value && THEME_ICONS[templatePick.value]) || DEFAULT_TEMPLATE_DD_ICON;
+  }
+  templatePick.addEventListener("change", refreshTemplateDdIcon);
   const layerListEl = document.getElementById("layer-list");
   const layerSearchEl = document.getElementById("layer-search");
   const propBodyEl = document.getElementById("prop-body");
@@ -3142,6 +3159,7 @@ async function main() {
       // there's no matching dropdown option to revert to, so just restore its label directly.
       if (current.templateKey) templatePick.setValueSilently(current.templateKey);
       else templatePick.label.textContent = current.label;
+      refreshTemplateDdIcon();
       return;
     }
     setStatus(`Loading ${options[key].label}…`);
@@ -3185,6 +3203,7 @@ async function main() {
     // No "start from" dropdown option represents "an upload" - just show the filename in the
     // picker without touching its selected-option state, since none of its options actually match.
     templatePick.label.textContent = current.label;
+    refreshTemplateDdIcon(); // no templateKey - falls back to the plain file glyph
     refreshCompareOptions(); // makes "Your upload" pickable as a compare reference
   }
 
@@ -3443,6 +3462,7 @@ async function main() {
         overlay.hidden = true;
         await loadTemplate(key);
         if (current) templatePick.setValueSilently(current.templateKey);
+        refreshTemplateDdIcon();
       });
       grid.appendChild(card);
 
@@ -3478,6 +3498,7 @@ async function main() {
       overlay.hidden = true;
       await loadTemplate(DEFAULT_TEMPLATE in options ? DEFAULT_TEMPLATE : Object.keys(options)[0]);
       if (current) templatePick.setValueSilently(current.templateKey);
+      refreshTemplateDdIcon();
     };
 
     overlay.hidden = false;
@@ -3542,6 +3563,7 @@ async function main() {
       current.templateKey = draft.templateKey;
       if (draft.templateKey) templatePick.setValueSilently(draft.templateKey);
       else templatePick.label.textContent = draft.label;
+      refreshTemplateDdIcon();
       if (!draft.templateKey) uploadedBuild = { style: JSON.parse(JSON.stringify(draft.style)), label: draft.label };
       setStatus(null); // loadBuild() itself never touches the status overlay - unlike loadTemplate()
                         // below, which clears it on success; missing this left the "Loading…"
