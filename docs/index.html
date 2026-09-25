@@ -446,6 +446,11 @@
   .prop-row-remove svg { width: 18px; height: 18px; stroke-width: 3; }
   .prop-row-remove:hover { background: hsl(var(--muted)); color: hsl(var(--destructive)); }
   .prop-row-remove:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
+  /* The "also apply to N other layers" opt-in (see findValueSiblings()/renderPropertyRow()) -
+     small and muted so a row with no siblings (the common case) isn't what this competes with
+     visually, but always visible once shown (not hover-revealed like .prop-row-remove) since
+     missing that you'd opted in would mean not noticing an edit is about to fan out further. */
+  .prop-row-link { margin-top: 7px; font-size: 11px; color: hsl(var(--muted-foreground)); }
   .add-property-row .prop-select { color: hsl(var(--muted-foreground)); }
   .color-row { display: flex; align-items: center; gap: 8px; }
   .color-row input[type=text] {
@@ -2154,6 +2159,13 @@ async function main() {
   // comparison per edit) rather than re-diffing all ~570 merged layers on every slider "input"
   // event, which fires continuously while dragging and would otherwise visibly stutter.
   let changedIds = new Set();
+  // Opt-in "also edit these" links, keyed by `${layer.id}::${kind}::${prop}` -> the sibling layer
+  // objects an edit to that one row should also apply to (see findValueSiblings() and its checkbox
+  // in renderPropertyRow() below) - e.g. recoloring one zoom-band copy of "Interstates" and having
+  // that follow through to the other 12. Reset whenever the property panel is rebuilt from scratch
+  // (renderPropertyPanel()) - a stale link surviving a layer switch would be surprising, and the
+  // checkbox itself only ever exists while its row is on screen anyway.
+  let linkedPropertyEdits = new Map();
   // Reordering doesn't change any single layer's own JSON, so it wouldn't show up in changedIds -
   // tracked separately, set by reorderWithinService().
   let orderChanged = false;
@@ -2522,12 +2534,48 @@ async function main() {
     renderPropertyPanel();
   }
 
+  /** Layers that currently render this one's exact `kind`/`prop` value, restricted to the same
+   * `source` + `source-layer` + `type` + `filter` (deep-equal, both-absent counting as equal) -
+   * the anchor that's actually safe here. UGRC's own zoom-banded layers (e.g. one road class split
+   * into a dozen-plus copies, one per zoom range) don't share a reliable NAMING convention - the
+   * same-looking trailing "_N"/"/N" suffixes mean "zoom variant" for one feature family and
+   * "genuinely different thing" (e.g. contour interval) for another, in different orders even - but
+   * every zoom-band copy of the SAME road class does share one literal `filter` (that's what makes
+   * them the same class) and, until edited, the same paint/layout values. Matching on the filter
+   * plus the CURRENT value is therefore both accurate (never mixes in a differently-filtered
+   * neighbor) and safe (a property that already varies by zoom, e.g. a tapering line-width, simply
+   * won't find every zoom-mate a match, rather than silently overwriting a deliberate difference). */
+  function findValueSiblings(layer, kind, prop) {
+    if (!current) return [];
+    const bucket = kind === "layout" ? layer.layout : layer.paint;
+    const value = JSON.stringify((bucket && bucket[prop]) ?? null);
+    const filterKey = JSON.stringify(layer.filter ?? null);
+    return current.style.layers.filter((ly) => {
+      if (ly === layer) return false;
+      if (ly.type !== layer.type || ly.source !== layer.source || ly["source-layer"] !== layer["source-layer"]) return false;
+      if (JSON.stringify(ly.filter ?? null) !== filterKey) return false;
+      const otherBucket = kind === "layout" ? ly.layout : ly.paint;
+      return JSON.stringify((otherBucket && otherBucket[prop]) ?? null) === value;
+    });
+  }
+
   function applyPropertyEdit(layer, kind, prop, value) {
     const bucket = kind === "layout" ? (layer.layout = layer.layout || {}) : (layer.paint = layer.paint || {});
     bucket[prop] = value;
     if (kind === "layout") map.setLayoutProperty(layer.id, prop, value);
     else map.setPaintProperty(layer.id, prop, value);
     markLayerChecked(layer);
+
+    const linked = linkedPropertyEdits.get(`${layer.id}::${kind}::${prop}`);
+    if (linked) {
+      for (const sib of linked) {
+        const sibBucket = kind === "layout" ? (sib.layout = sib.layout || {}) : (sib.paint = sib.paint || {});
+        sibBucket[prop] = value;
+        if (kind === "layout") map.setLayoutProperty(sib.id, prop, value);
+        else map.setPaintProperty(sib.id, prop, value);
+        markLayerChecked(sib);
+      }
+    }
   }
 
   function formatNumber(value, step) {
@@ -2776,6 +2824,26 @@ async function main() {
       renderPropertyPanel();
     });
     slot.replaceWith(removeBtn);
+
+    // Opt-in bulk-apply: only shown when other layers currently share this exact value (see
+    // findValueSiblings()) - most rows have none, and this stays out of their way entirely.
+    const siblings = findValueSiblings(layer, kind, prop);
+    if (siblings.length > 0) {
+      const linkRow = document.createElement("label");
+      linkRow.className = "prop-row-link checkbox-label";
+      const linkKey = `${layer.id}::${kind}::${prop}`;
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = linkedPropertyEdits.has(linkKey);
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) linkedPropertyEdits.set(linkKey, siblings);
+        else linkedPropertyEdits.delete(linkKey);
+      });
+      linkRow.append(checkbox, document.createTextNode(
+        ` Also apply to ${siblings.length} other layer${siblings.length === 1 ? "" : "s"} sharing this value`
+      ));
+      row.appendChild(linkRow);
+    }
     return row;
   }
 
@@ -3116,6 +3184,7 @@ async function main() {
 
   function renderPropertyPanel() {
     propBodyEl.innerHTML = "";
+    linkedPropertyEdits.clear(); // a stale link surviving a rebuilt panel would be surprising
     const layer = current && current.style.layers.find((ly) => ly.id === selectedLayerId);
     if (!layer) {
       propBodyEl.innerHTML = '<p class="prop-empty">Select a layer on the left to edit it.</p>';
