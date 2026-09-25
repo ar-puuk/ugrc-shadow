@@ -730,10 +730,11 @@
   .maplibregl-ctrl-group button:hover { background-color: hsl(var(--foreground) / 0.06) !important; }
   .maplibregl-ctrl-group button + button { border-top: 1px solid hsl(var(--foreground) / 0.1) !important; }
   /* Same "on" look as .footer-coords-toggle[aria-pressed] - used by InspectControl below so its
-     button reads as toggled on while inspect mode is active. --primary (this app's actual yellow
-     accent, used for the Download button/slider thumbs/etc.), not --ring - --ring is a separate
-     blue reserved for focus rings and would read as an unrelated accent color here. */
-  .maplibregl-ctrl-group button[aria-pressed="true"] { background-color: hsl(var(--primary) / 0.15) !important; color: hsl(var(--primary)); }
+     button reads as toggled on while inspect mode is active. Solid --primary fill with
+     --primary-foreground icons, the same "filled" pairing the Download button/checkbox checkmarks
+     already use elsewhere - not literal white, which would be light-on-light against this
+     particular yellow and barely readable. */
+  .maplibregl-ctrl-group button[aria-pressed="true"] { background-color: hsl(var(--primary)) !important; color: hsl(var(--primary-foreground)); }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) .maplibregl-ctrl-icon { filter: invert(1) brightness(1.2); }
   }
@@ -888,7 +889,7 @@
   }
   .footer-coords-toggle svg { width: 12px; height: 12px; }
   .footer-coords-toggle:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
-  .footer-coords-toggle[aria-pressed="true"] { background: hsl(var(--primary) / 0.15); color: hsl(var(--primary)); }
+  .footer-coords-toggle[aria-pressed="true"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
   .footer-coords-toggle:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring) / 0.35); }
   /* tabular-nums so the digits don't jitter horizontally as they update continuously while
      panning/zooming/following the cursor - each glyph keeps a fixed width instead of proportional
