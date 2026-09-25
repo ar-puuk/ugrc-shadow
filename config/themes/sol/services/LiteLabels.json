@@ -3,7 +3,7 @@
   "rules": [
     { "note": "road names",           "match": { "type": "symbol", "source_layer": "^Roads" },                          "paint": { "text-color": "@label", "text-halo-color": "@halo" } },
     { "note": "minor road names",     "match": { "type": "symbol", "source_layer": "^Roads", "id": "Minor Rds" },       "paint": { "text-color": "@label_minor" } },
-    { "note": "Interstate shield route numbers: matches the near-white number UGRC's own Vector_Overlay style pairs with that same shield graphic (see theme.json's borrowed sol sprite). No halo, same as Vector_Overlay's own - the number sits directly on the colorful shield, not bare like the other road name text this service's generic 'road names' rule above targets.",
+    { "note": "Interstate shield route numbers: pure white, not UGRC's own Vector_Overlay value (#f5efdc, a warm off-white that reads slightly cream/yellow-tinted against the shield's saturated blue) - see palette_extra.json's shield_text_interstate. No halo, same as Vector_Overlay's own - the number sits directly on the colorful shield, not bare like the other road name text this service's generic 'road names' rule above targets.",
       "match": { "type": "symbol", "source_layer": "^Roads", "id": "/label/Interstates" }, "paint": { "text-color": "@shield_text_interstate", "text-halo-color": null } },
     { "note": "US/State highway shield route numbers: matches the dark number UGRC's own Vector_Overlay style pairs with those shield graphics. No halo, same reasoning as Interstates above.",
       "match": { "type": "symbol", "source_layer": "^Roads", "id": "/label/(US Highways|State Highways)" }, "paint": { "text-color": "@shield_text_highway", "text-halo-color": null } },

@@ -8,12 +8,14 @@
     "legitimately comes from Voyager (matches a real layer's paint color, or clear intent, e.g.",
     "hillshade's base tone = the land fill), it belongs in palette.py's CARTO_KEY_MAP instead.",
     "Only genuinely UGRC-original tokens with no Voyager equivalent belong here.",
-    "'shield_text_interstate'/'shield_text_highway' and every 'transit_*' key are the same",
-    "exception to 'no Voyager equivalent': none are from Voyager at all, but copied verbatim",
-    "from UGRC's own Vector_Overlay style (whose sprite sol's LiteLabels/LiteBase icons already",
-    "borrow - see theme.json), because Vector_Overlay's own transit/shield treatment (a neutral",
-    "gray+white rail casing, distinct per-route brand colors, near-white Interstate numerals)",
-    "reads far better than anything hand-picked to match Voyager's palette would."
+    "'shield_text_highway' and every 'transit_*' key are the same exception to 'no Voyager",
+    "equivalent': none are from Voyager at all, but copied verbatim from UGRC's own Vector_Overlay",
+    "style (whose sprite sol's LiteLabels/LiteBase icons already borrow - see theme.json), because",
+    "Vector_Overlay's own transit/shield treatment (a neutral gray+white rail casing, distinct",
+    "per-route brand colors) reads far better than anything hand-picked to match Voyager's palette",
+    "would. 'shield_text_interstate' is the one deliberate departure from that verbatim-copy rule:",
+    "Vector_Overlay's own Interstate numeral color is #f5efdc, a warm off-white that reads as",
+    "slightly cream/yellow-tinted against the shield's saturated blue - bumped to pure white here."
   ],
 
   "urban_tint": "#f0e6d2",
@@ -55,6 +57,6 @@
   "label_city_major": "#2f4762",
   "label_park": "#3f6b4a",
 
-  "shield_text_interstate": "#f5efdc",
+  "shield_text_interstate": "#ffffff",
   "shield_text_highway": "#666461"
 }
