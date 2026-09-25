@@ -1787,7 +1787,10 @@ class TiltResetControl {
     btn.className = "ugrc-ctrl-icon-btn";
     btn.title = "Reset tilt & north";
     btn.setAttribute("aria-label", "Reset tilt & north");
-    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>';
+    // Lucide's "rotate-ccw" (ISC licensed, inlined) - reads more directly as "spin this back" than
+    // the compass-needle glyph it replaced, which looked closer to the nav control's own compass
+    // right above it.
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>';
     btn.addEventListener("click", () => map.easeTo({ bearing: 0, pitch: 0, duration: 400 }));
     this._container.appendChild(btn);
     return this._container;
