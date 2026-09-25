@@ -21,6 +21,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
 <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.css">
+<link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.9.4/dist/maplibre-gl-geocoder.css">
 <style>
   /* shadcn/ui's own "zinc" theme values (light below, dark further down), with --primary/--ring
      overridden to this site's amber/blue brand accents - the common "neutral base + one brand
@@ -539,9 +540,31 @@
   .filter-row .prop-select { flex: 0 0 4.5em; }
   .filter-row .filter-field { flex: 1 1 auto; }
   .filter-row .filter-value { flex: 1 1 auto; }
-  .zoom-row { display: flex; align-items: center; gap: 6px; }
-  .zoom-row label { font-size: 11.5px; color: hsl(var(--muted-foreground)); }
-  .zoom-row .zoom-input { width: 5em; flex: none; }
+  /* A two-handle range slider, not two number inputs - plain divs + pointer-capture, same reasoning
+     as docs/assets/colorpicker.js's own sliders (see its header comment): no native form control
+     has two thumbs at all, so there's no "fighting the browser's own styling" tradeoff to weigh
+     here the way there was for a single-value range. Padded on top for the always-visible value
+     labels floating above each thumb (not just while dragging - the point is seeing both ends of
+     the current range at a glance, not just the endpoints in text inputs). */
+  .zoom-range-wrap { padding: 16px 7px 0; }
+  .zoom-range-slider { position: relative; height: 20px; touch-action: none; }
+  .zoom-range-track {
+    position: absolute; top: 50%; left: 0; right: 0; height: 8px; margin-top: -4px;
+    border-radius: 999px; background: hsl(var(--muted));
+  }
+  .zoom-range-fill { position: absolute; top: 50%; height: 8px; margin-top: -4px; border-radius: 999px; background: hsl(var(--primary)); }
+  .zoom-range-thumb {
+    position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+    border-radius: 50%; background: hsl(var(--background)); border: 2px solid hsl(var(--primary));
+    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.3); cursor: grab;
+  }
+  .zoom-range-thumb:active { cursor: grabbing; }
+  .zoom-range-thumb:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.35); }
+  .zoom-range-thumb-value {
+    position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 5px;
+    font-size: 10.5px; font-weight: 600; color: hsl(var(--foreground)); white-space: nowrap; pointer-events: none;
+  }
+  .zoom-range-ticks { display: flex; justify-content: space-between; margin-top: 4px; padding-bottom: 2px; font-size: 10px; color: hsl(var(--muted-foreground)); }
   details.raw-json summary { cursor: pointer; font-size: 11.5px; color: hsl(var(--muted-foreground)); margin-bottom: 6px; }
   .raw-json-body { position: relative; }
   .raw-json pre {
@@ -616,17 +639,17 @@
 
   input[type="range"] {
     appearance: none; -webkit-appearance: none;
-    height: 4px; border-radius: 999px; background: hsl(var(--muted));
+    height: 8px; border-radius: 999px; background: hsl(var(--muted));
     cursor: pointer;
   }
-  input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: transparent; }
+  input[type="range"]::-webkit-slider-runnable-track { height: 8px; border-radius: 999px; background: transparent; }
   input[type="range"]::-webkit-slider-thumb {
-    appearance: none; -webkit-appearance: none; margin-top: -5px;
+    appearance: none; -webkit-appearance: none; margin-top: -3px;
     width: 14px; height: 14px; border-radius: 50%;
     background: hsl(var(--primary)); border: 2px solid hsl(var(--background));
     box-shadow: 0 0 0 1px hsl(var(--border));
   }
-  input[type="range"]::-moz-range-track { height: 4px; border-radius: 999px; background: hsl(var(--muted)); }
+  input[type="range"]::-moz-range-track { height: 8px; border-radius: 999px; background: hsl(var(--muted)); }
   input[type="range"]::-moz-range-thumb {
     width: 14px; height: 14px; border-radius: 50%; border: 2px solid hsl(var(--background));
     background: hsl(var(--primary)); box-shadow: 0 0 0 1px hsl(var(--border));
@@ -646,12 +669,8 @@
      currentColor/theming hook. On a light card that's already readable as-is; on a dark card it
      needs inverting to read as light-on-dark - so unlike the rest of this page's chrome (which
      just follows the --tokens), this one genuinely branches on the page's actual light/dark state.
-     Applies to both the map's own top-right control and the shared one mounted while comparing
-     (#compare-nav-control below). */
-  /* Same popover-card look as #compare-nav-control below, so the map's own top-right control isn't
-     left with no fill at all. #compare-nav-control already supplies this same background/border/
-     box-shadow on its own wrapper - so the group itself stays transparent there to avoid a
-     doubled-up border/shadow. */
+     Applies equally on the map's own corners and inside #compare-nav-control/#compare-search-control
+     below, since the control's own DOM (and thus this class) moves there unchanged while comparing. */
   .maplibregl-ctrl-group {
     background: hsl(var(--popover)) !important;
     border: 1px solid hsl(var(--border));
@@ -659,8 +678,13 @@
     box-shadow: 0 4px 6px hsl(var(--foreground) / 0.05), 0 10px 24px hsl(var(--foreground) / 0.12) !important;
     overflow: hidden;
   }
-  #compare-nav-control .maplibregl-ctrl-group { background: transparent !important; border: none; box-shadow: none !important; }
   .maplibregl-ctrl-group button { background-color: transparent !important; }
+  /* MapLibre's own control buttons fill their whole box with a background-image icon sized
+     height/width:100% (.maplibregl-ctrl-icon), which centers it trivially - a raw inline <svg>
+     child (like TiltResetControl's below) has no such rule and, under the library's plain
+     `display: block` button, only follows normal inline flow (not necessarily centered). Custom
+     controls opt into this class on their <button> instead. */
+  .ugrc-ctrl-icon-btn { display: flex !important; align-items: center; justify-content: center; }
   .maplibregl-ctrl-group button:hover { background-color: hsl(var(--foreground) / 0.06) !important; }
   .maplibregl-ctrl-group button + button { border-top: 1px solid hsl(var(--foreground) / 0.1) !important; }
   @media (prefers-color-scheme: dark) {
@@ -668,22 +692,93 @@
   }
   :root[data-theme="dark"] .maplibregl-ctrl-icon { filter: invert(1) brightness(1.2); }
 
+  /* maplibre-gl-geocoder ships its own hardcoded light styling (white background, #404040 text,
+     Open Sans) with no theming hook at all - restyled here to match this page's shadcn-style
+     popover chrome and Inter type, the same way .maplibregl-ctrl-group above is. Its icons are
+     plain SVG <path fill="#..."> attributes rather than currentColor, but a presentation attribute
+     like that has the lowest possible CSS specificity - any plain rule here beats it with no
+     !important needed, unlike the invert-filter trick .maplibregl-ctrl-icon above needs for
+     MapLibre's own background-image icons. Sizing is also pinned to one fixed look (rather than the
+     library's own 240px-wide/50px-tall "mobile" default that only shrinks past its own 640px
+     breakpoint) so it reads as one more ~30px-tall control alongside the nav/tilt buttons below it
+     regardless of this page's own (different) responsive breakpoints. */
+  .maplibregl-ctrl-geocoder {
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    width: 260px; min-width: 0;
+    background: hsl(var(--popover)) !important;
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius) !important;
+    box-shadow: 0 4px 6px hsl(var(--foreground) / 0.05), 0 10px 24px hsl(var(--foreground) / 0.12) !important;
+  }
+  .maplibregl-ctrl-geocoder--input {
+    height: 30px; padding: 5px 32px; font-size: 13px;
+    color: hsl(var(--foreground));
+  }
+  .maplibregl-ctrl-geocoder--input:focus { color: hsl(var(--foreground)); outline: none; box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25); }
+  .maplibregl-ctrl-geocoder--input::placeholder { color: hsl(var(--muted-foreground)); opacity: 1; }
+  .maplibregl-ctrl-geocoder--icon-search { top: 7px; left: 8px; width: 16px; height: 16px; }
+  /* The library's own CSS positions the clear button + loading spinner with a fixed `top: 7px` (on
+     .pin-right > * individually) sized for its own 50px/36px-tall input - our input is shorter
+     (30px) and neither pixel offset lines up with its middle. Re-parented as a flex row spanning
+     the input's full height instead, so both icons land vertically centered by construction
+     regardless of the input's height or either icon's own size - a static offset would need
+     retuning every time either changes. */
+  .maplibregl-ctrl-geocoder--pin-right {
+    top: 0; right: 6px; bottom: 0;
+    display: flex; align-items: center; gap: 2px;
+  }
+  .maplibregl-ctrl-geocoder--pin-right > * { position: static; top: auto; right: auto; }
+  /* The library's own (unmatched-by-us) margin-top/margin-right on these two - meant to hand-
+     position them under its old `top: 7px` absolute offset - would otherwise survive into this
+     flex layout as leftover asymmetric margin, throwing off centering despite align-items: center
+     (which centers the whole margin box, not just the icon itself). Zero them out explicitly. */
+  .maplibregl-ctrl-geocoder--icon-close { width: 15px; height: 15px; margin: 0; }
+  .maplibregl-ctrl-geocoder--icon-loading { width: 18px; height: 18px; margin: 0; }
+  .maplibregl-ctrl-geocoder--icon, .maplibregl-ctrl-geocoder--icon path,
+  .maplibregl-ctrl-geocoder--icon-loading path {
+    fill: hsl(var(--muted-foreground));
+  }
+  .maplibregl-ctrl-geocoder--button { background: transparent; vertical-align: middle; }
+  .maplibregl-ctrl-geocoder--button:hover .maplibregl-ctrl-geocoder--icon-close { fill: hsl(var(--foreground)); }
+  .maplibregl-ctrl-geocoder .suggestions {
+    background: hsl(var(--popover));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    box-shadow: 0 4px 6px hsl(var(--foreground) / 0.05), 0 10px 24px hsl(var(--foreground) / 0.12);
+  }
+  .maplibregl-ctrl-geocoder .suggestions > li > a { color: hsl(var(--popover-foreground)); }
+  .maplibregl-ctrl-geocoder .suggestions > .active > a,
+  .maplibregl-ctrl-geocoder .suggestions > li > a:hover { color: hsl(var(--popover-foreground)); background: hsl(var(--muted)); }
+  .maplibregl-ctrl-geocoder--suggestion-icon, .maplibregl-ctrl-geocoder--suggestion-icon path,
+  .maplibregl-ctrl-geocoder--result-icon, .maplibregl-ctrl-geocoder--result-icon path {
+    fill: hsl(var(--muted-foreground));
+  }
+  .maplibregl-ctrl-geocoder--suggestion-address, .maplibregl-ctrl-geocoder--result-address {
+    color: hsl(var(--muted-foreground));
+  }
+  .maplibre-gl-geocoder--error { color: hsl(var(--muted-foreground)); }
+
   /* The reference map for compare mode - a sibling of #map inside #map-wrap (see the "compare"
      rules below main's own CSS), mounted/shown only while a reference template is picked. Same
      position:absolute;inset:0 as #map so maplibre-gl-compare's clip-path can overlay the two. */
   #compare-map { position: absolute; inset: 0; }
   /* map.addControl() mounts a control INSIDE that map's own container, which the compare slider
-     clips to a left- or right-only region - so whichever map it were attached to, the control
-     would disappear past the slider. The nav control is instead relocated here (a sibling of both
-     map containers, never clipped) while comparing, and moved back onto #map's own corner when
-     compare turns off - see relocateNavControl() in the script below. Styled on
-     #compare-nav-control itself rather than .maplibregl-ctrl-group, so it isn't affected by the
-     icon-inverting filter above. */
+     clips to a left- or right-only region - so whichever map they were attached to, any control in
+     that corner would disappear past the slider once it crosses that edge. The nav/tilt-reset pair
+     (top-right) and the address search (top-left) are each instead relocated to one of these two
+     siblings (never clipped) while comparing, and moved back onto #map's own corners when compare
+     turns off - see relocateControls() in the script below. Plain flex rows with the same 10px gap
+     MapLibre's own corner containers use, not a single merged card - each control already draws its
+     own popover-card shell (see .maplibregl-ctrl-group/.maplibregl-ctrl-geocoder above), so
+     stacking them here looks identical to their normal on-map corner instead of collapsing into one
+     box. */
   #compare-nav-control {
     position: absolute; top: 10px; right: 10px; z-index: 4;
-    border-radius: var(--radius); overflow: hidden;
-    background: hsl(var(--popover)); border: 1px solid hsl(var(--border));
-    box-shadow: 0 4px 6px hsl(var(--foreground) / 0.05), 0 10px 24px hsl(var(--foreground) / 0.12);
+    display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+  }
+  #compare-search-control {
+    position: absolute; top: 10px; left: 10px; z-index: 4;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
   }
   /* maplibre-gl-compare's own divider/handle sits on the MAP, not the page chrome, so it stays a
      fixed near-white/amber look regardless of the page's own light/dark mode - only
@@ -815,6 +910,7 @@
   @media (max-width: 480px) {
     .dd-button { width: 7em; }
     .modal-theme-grid { grid-template-columns: 1fr; }
+    .maplibregl-ctrl-geocoder { width: 180px; }
   }
 </style>
 </head>
@@ -935,6 +1031,7 @@
     <div id="map-wrap">
       <div id="map"></div>
       <div id="compare-map" hidden></div>
+      <div id="compare-search-control"></div>
       <div id="compare-nav-control"></div>
       <div id="status">
         <div class="spinner" aria-hidden="true"></div>
@@ -969,6 +1066,7 @@
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/@maplibre/maplibre-gl-compare@0.5.0/dist/maplibre-gl-compare.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.9.4/dist/maplibre-gl-geocoder.js"></script>
 <script type="module">
 "use strict";
 
@@ -1452,6 +1550,176 @@ makeResizable(document.getElementById("prop-panel-resize"), document.getElementB
   min: 240, max: 560, side: "right", storageKey: "ugrc-prop-panel-width",
 });
 
+// ── Geocoding: UGRC's "masquerade" locator (an Esri-locator-shaped proxy in front of UGRC's own
+// address data - https://github.com/agrc/masquerade), with OpenStreetMap's Nominatim as a fallback
+// for whatever masquerade doesn't index (POIs/place names, anything outside Utah). Public,
+// unauthenticated, CORS-enabled on both - no API key needed. Ported from
+// WFRCAnalytics/MAP-Housing-ATO-Calculator-Updated's useMap.js, which paired the two this same way
+// for a MapLibre geocoder control.
+const MASQUERADE_URL = "https://masquerade.ugrc.utah.gov/arcgis/rest/services/UtahLocator/GeocodeServer";
+
+const nominatimApi = {
+  forwardGeocode: async (config) => {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(config.query)}&format=geojson&limit=5&countrycodes=us&viewbox=-114.05,42.0,-109.04,36.99&bounded=1`;
+      const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+      const geojson = await res.json();
+      return {
+        features: geojson.features.map((f) => {
+          const bbox = f.bbox;
+          const center = bbox ? [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2] : f.geometry.coordinates;
+          return {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: center },
+            place_name: f.properties.display_name,
+            text: f.properties.display_name,
+            place_type: ["place"],
+            center,
+            bbox,
+          };
+        }),
+      };
+    } catch { return { features: [] }; }
+  },
+};
+
+function candidatesToFeatures(candidates) {
+  return candidates.map((c) => {
+    const center = [c.location.x, c.location.y];
+    return {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: center },
+      place_name: c.address,
+      text: c.address,
+      place_type: ["address"],
+      center,
+    };
+  });
+}
+
+async function findAddressCandidates(text, magicKey) {
+  const params = new URLSearchParams({ SingleLine: text, outSR: "4326", f: "json" });
+  if (magicKey) params.set("magicKey", magicKey);
+  const res = await fetch(`${MASQUERADE_URL}/findAddressCandidates?${params}`);
+  const body = await res.json();
+  return body.candidates ?? [];
+}
+
+async function suggest(text, signal) {
+  const params = new URLSearchParams({ text, f: "json" });
+  const res = await fetch(`${MASQUERADE_URL}/suggest?${params}`, { signal });
+  const { suggestions = [] } = await res.json();
+  return suggestions;
+}
+
+// suggest() only returns {text, magicKey} pairs, not coordinates - maplibre-gl-geocoder's
+// searchByPlaceId only hands back the magicKey, so the matching text is stashed here to resolve a
+// picked suggestion without re-querying.
+const magicKeyToText = new Map();
+// Cancel a still-in-flight suggest() when the user keeps typing, instead of letting it resolve
+// later and stomp newer results.
+let suggestAbortController = null;
+// A call that's already past the (abortable) suggest() fetch can still be sitting in the slower,
+// non-abortable Nominatim fallback below when a newer keystroke supersedes it - this sequence
+// number lets any call tell, right before it would render, whether it's still the latest.
+let geocodeRequestSeq = 0;
+
+const ugrcGeocoderApi = {
+  // Runs on every keystroke (maplibre-gl-geocoder debounces it). Only hits the cheap /suggest
+  // endpoint - no coordinate resolution - so typing stays fast; coordinates are resolved lazily,
+  // once, only for the single suggestion the user actually picks (searchByPlaceId, below).
+  getSuggestions: async (config) => {
+    const seq = ++geocodeRequestSeq;
+    suggestAbortController?.abort();
+    const controller = new AbortController();
+    suggestAbortController = controller;
+
+    let suggestions = [];
+    try {
+      suggestions = await suggest(config.query, controller.signal);
+    } catch { /* aborted or network error - fall through to empty */ }
+
+    // Superseded by a newer keystroke while we were waiting - never resolve, so this stale
+    // response can't stomp whatever the newer call has already rendered (or is about to).
+    if (seq !== geocodeRequestSeq) return new Promise(() => {});
+
+    if (suggestions.length) {
+      suggestions.forEach((s) => magicKeyToText.set(s.magicKey, s.text));
+      return { suggestions: suggestions.slice(0, 5).map((s) => ({ text: s.text, placeId: s.magicKey })) };
+    }
+
+    // No UGRC suggestions (e.g. a business/POI name UGRC doesn't index) - fall back to Nominatim,
+    // whose results already carry full geometry, so picking one needs no further round trip.
+    const { features } = await nominatimApi.forwardGeocode(config);
+    if (seq !== geocodeRequestSeq) return new Promise(() => {});
+
+    // Nominatim does full-text search, not prefix completion, so it's often blank for a still-
+    // incomplete word even though the address is real - leave whatever suggestions are already
+    // showing rather than flashing "No results found" mid-word. Enter still runs the fuller
+    // forwardGeocode lookup for a definitive answer.
+    if (!features.length) return new Promise(() => {});
+    return { suggestions: features };
+  },
+
+  // Called once, only when the user picks a UGRC suggestion from the list.
+  searchByPlaceId: async (config) => {
+    const magicKey = config.query;
+    const text = magicKeyToText.get(magicKey) ?? "";
+    const candidates = await findAddressCandidates(text, magicKey);
+    return { features: candidatesToFeatures(candidates) };
+  },
+
+  // Only reached when the user types a complete address and hits Enter without picking a
+  // suggestion first.
+  forwardGeocode: async (config) => {
+    try {
+      // A complete "street, city/zip" query resolves directly.
+      let candidates = await findAddressCandidates(config.query);
+
+      // Partial text or a bare place name (e.g. "Sugar House") needs the suggest endpoint, then a
+      // follow-up lookup per suggestion (via its magicKey) to get coordinates.
+      if (!candidates.length) {
+        const suggestions = await suggest(config.query);
+        const resolved = await Promise.all(
+          suggestions.slice(0, 5).map((s) => findAddressCandidates(s.text, s.magicKey))
+        );
+        candidates = resolved.flat();
+      }
+
+      if (candidates.length) return { features: candidatesToFeatures(candidates) };
+    } catch { /* fall through to Nominatim */ }
+
+    // No UGRC match - fall back to Nominatim.
+    return nominatimApi.forwardGeocode(config);
+  },
+};
+
+/** A small MapLibre control that resets bearing/pitch to due-north/flat, dropped below the
+ * navigation control - MapLibre ships zoom/compass but nothing for tilt. Same
+ * "maplibregl-ctrl maplibregl-ctrl-group" shell as a built-in control, so it inherits the card
+ * look/hover states/currentColor icon theming already styled for .maplibregl-ctrl-group above for
+ * free, with no separate light/dark handling of its own needed. */
+class TiltResetControl {
+  onAdd(map) {
+    this._map = map;
+    this._container = document.createElement("div");
+    this._container.className = "maplibregl-ctrl maplibregl-ctrl-group";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ugrc-ctrl-icon-btn";
+    btn.title = "Reset tilt & north";
+    btn.setAttribute("aria-label", "Reset tilt & north");
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>';
+    btn.addEventListener("click", () => map.easeTo({ bearing: 0, pitch: 0, duration: 400 }));
+    this._container.appendChild(btn);
+    return this._container;
+  }
+  onRemove() {
+    this._container.parentNode?.removeChild(this._container);
+    this._map = null;
+  }
+}
+
 async function main() {
   const statusEl = document.getElementById("status");
   const statusText = document.getElementById("status-text");
@@ -1464,18 +1732,82 @@ async function main() {
   const comparePick = new Dropdown(document.getElementById("compare-dd"));
   const compareMapEl = document.getElementById("compare-map");
   const compareNavControlEl = document.getElementById("compare-nav-control");
+  const compareSearchControlEl = document.getElementById("compare-search-control");
 
   const map = new maplibregl.Map({
     container: "map",
     style: { version: 8, sources: {}, layers: [] },
     center: CENTER, zoom: ZOOM, attributionControl: false,
   });
-  // Kept as its own variable (not just whatever addControl() creates internally) so
-  // relocateNavControl() below can move this exact control between the live map's own corner and
-  // the shared, never-clipped #compare-nav-control sibling while comparing.
+  // Top-left: address search. Top-right: zoom/compass, then tilt reset below it. Kept as their own
+  // variables (not just whatever addControl() creates internally) so relocateControls() below can
+  // move these exact controls between the live map's own corners and the shared, never-clipped
+  // #compare-search-control/#compare-nav-control siblings while comparing.
+  const geocoderControl = new MaplibreGeocoder(ugrcGeocoderApi, {
+    maplibregl,
+    placeholder: "Search address…",
+    proximity: { longitude: CENTER[0], latitude: CENTER[1] },
+    zoom: 16,
+    flyTo: { duration: 1500, maxZoom: 16 },
+    showResultsWhileTyping: true,
+    minLength: 3,
+    // The library's own built-in marker is owned by the control's onAdd/onRemove lifecycle, which
+    // relocateControls() below calls on every compare-mode toggle just to move the control's DOM
+    // between corners - onRemove() wipes the marker as an (unwanted, for us) side effect of that
+    // unrelated move. Disabled here in favor of managing our own markers directly (see
+    // setLiveResultMarker/setCompareResultMarker below), independent of the control's lifecycle.
+    marker: false,
+  });
+  map.addControl(geocoderControl, "top-left");
   const navControl = new maplibregl.NavigationControl();
   map.addControl(navControl, "top-right");
+  const tiltResetControl = new TiltResetControl();
+  map.addControl(tiltResetControl, "top-right");
+  const topLeftControls = [geocoderControl];
+  const topRightControls = [navControl, tiltResetControl];
   map.on("error", (e) => console.error("[editor] MapLibre error:", e && e.error));
+
+  // Marks a geocoder result on both `map` (always) and compareMap (whenever one exists) - one real
+  // maplibregl.Marker per map, each added directly to that map (not routed through the geocoder
+  // control - see its "marker: false" comment above). This deliberately does NOT try to draw one
+  // shared marker as a sibling of both map containers: a WebGL canvas can end up compositing above
+  // ordinary positioned DOM content regardless of z-index in some browsers/GPUs, so a marker outside
+  // either map's own container isn't reliably guaranteed to paint on top of it. A marker living
+  // INSIDE a map's own container doesn't have that problem - it's the same well-tested arrangement
+  // the library's own default marker already uses. maplibre-gl-compare clips `map` to the divider's
+  // left side and compareMap to its right side (complementary, never both at the same pixel), so
+  // whichever map is actually showing at the marker's position is the one whose own copy renders
+  // there - the marker reads as continuous across the whole swipe width even though, underneath,
+  // it's two markers each only ever visible on its own map's side.
+  const RESULT_MARKER_COLOR = "#4668f2";
+  function resultLngLat(result) {
+    if (result?.center) return result.center;
+    if (result?.geometry?.type === "Point" && result.geometry.coordinates) return result.geometry.coordinates;
+    return null;
+  }
+  function setLiveResultMarker(lngLat) {
+    liveResultMarker?.remove();
+    liveResultMarker = lngLat ? new maplibregl.Marker({ color: RESULT_MARKER_COLOR }).setLngLat(lngLat).addTo(map) : null;
+  }
+  // Also called on its own by setCompareTarget() below, to seed a freshly-created compareMap with
+  // whatever was last searched (a search-then-compare workflow) without re-touching the live
+  // marker, which is already showing correctly and untouched by that transition.
+  function setCompareResultMarker(lngLat) {
+    compareResultMarker?.remove();
+    compareResultMarker = lngLat && compareMap
+      ? new maplibregl.Marker({ color: RESULT_MARKER_COLOR }).setLngLat(lngLat).addTo(compareMap)
+      : null;
+  }
+  geocoderControl.on("result", ({ result }) => {
+    lastGeocodeResultLngLat = resultLngLat(result);
+    setLiveResultMarker(lastGeocodeResultLngLat);
+    setCompareResultMarker(lastGeocodeResultLngLat);
+  });
+  geocoderControl.on("clear", () => {
+    lastGeocodeResultLngLat = null;
+    setLiveResultMarker(null);
+    setCompareResultMarker(null);
+  });
 
   // Live coordinates + zoom in the footer's bottom-right corner. Two sources, chosen by the
   // "follow cursor" toggle: off (default) always shows the view's center, driven by `map`'s own
@@ -1546,6 +1878,13 @@ async function main() {
   let compareMap = null;
   let compareInstance = null; // the active maplibregl.Compare swipe binding, or null when off
   let compareOptions = null;
+  // Result markers for the geocoder search (see setLiveResultMarker/setCompareResultMarker above) -
+  // lastGeocodeResultLngLat tracks the coordinates themselves (not just the marker) so a compareMap
+  // created *after* a search already happened can still be seeded with it, in setCompareTarget()
+  // below.
+  let lastGeocodeResultLngLat = null;
+  let liveResultMarker = null;
+  let compareResultMarker = null;
   const compareStyleCache = new Map(); // template key -> render-ready style
   const themeThumbnails = new Map(); // template key -> captured PNG data: URL, built once per session
   let draftSaveTimer = null;
@@ -2343,7 +2682,14 @@ async function main() {
     return section;
   }
 
+  /** A two-handle slider over the GL spec's own 0-24 zoom range. Resting a handle at either
+   * extreme (the whole point of dragging it all the way out) deletes that side's minzoom/maxzoom
+   * rather than pinning it to a literal 0/24 - matching the old number inputs' "blank = spec
+   * default" behavior, so a layer you've never touched this control for doesn't gain an explicit
+   * range just from this section having rendered. Updates live while dragging (map.setLayerZoomRange
+   * on every tick), the same as every other slider in this panel (renderRangeRow above). */
   function renderZoomSection(layer) {
+    const ZMIN = 0, ZMAX = 24;
     const section = document.createElement("div");
     section.className = "prop-section";
     const h = document.createElement("h3");
@@ -2351,38 +2697,125 @@ async function main() {
     h.textContent = "Zoom range";
     section.appendChild(h);
 
-    const row = document.createElement("div");
-    row.className = "zoom-row";
-    const minLabel = document.createElement("label");
-    minLabel.textContent = "Min";
-    const minInput = document.createElement("input");
-    minInput.type = "number";
-    minInput.min = "0"; minInput.max = "24"; minInput.step = "1";
-    minInput.className = "prop-text-input zoom-input";
-    minInput.placeholder = "0";
-    minInput.value = layer.minzoom != null ? String(layer.minzoom) : "";
+    let lo = layer.minzoom != null ? Math.max(ZMIN, Math.min(ZMAX, layer.minzoom)) : ZMIN;
+    let hi = layer.maxzoom != null ? Math.max(ZMIN, Math.min(ZMAX, layer.maxzoom)) : ZMAX;
 
-    const maxLabel = document.createElement("label");
-    maxLabel.textContent = "Max";
-    const maxInput = document.createElement("input");
-    maxInput.type = "number";
-    maxInput.min = "0"; maxInput.max = "24"; maxInput.step = "1";
-    maxInput.className = "prop-text-input zoom-input";
-    maxInput.placeholder = "24";
-    maxInput.value = layer.maxzoom != null ? String(layer.maxzoom) : "";
+    const wrap = document.createElement("div");
+    wrap.className = "zoom-range-wrap";
+    const slider = document.createElement("div");
+    slider.className = "zoom-range-slider";
+    const track = document.createElement("div");
+    track.className = "zoom-range-track";
+    const fill = document.createElement("div");
+    fill.className = "zoom-range-fill";
 
-    const commit = () => {
-      if (minInput.value === "") delete layer.minzoom; else layer.minzoom = Number(minInput.value);
-      if (maxInput.value === "") delete layer.maxzoom; else layer.maxzoom = Number(maxInput.value);
-      map.setLayerZoomRange(layer.id, layer.minzoom ?? 0, layer.maxzoom ?? 24);
+    function makeThumb(label) {
+      const thumb = document.createElement("div");
+      thumb.className = "zoom-range-thumb";
+      thumb.tabIndex = 0;
+      thumb.setAttribute("role", "slider");
+      thumb.setAttribute("aria-label", label);
+      thumb.setAttribute("aria-valuemin", String(ZMIN));
+      thumb.setAttribute("aria-valuemax", String(ZMAX));
+      const value = document.createElement("span");
+      value.className = "zoom-range-thumb-value";
+      thumb.appendChild(value);
+      return { thumb, value };
+    }
+    const thumbLo = makeThumb("Minimum zoom");
+    const thumbHi = makeThumb("Maximum zoom");
+    slider.append(track, fill, thumbLo.thumb, thumbHi.thumb);
+    wrap.appendChild(slider);
+
+    const ticks = document.createElement("div");
+    ticks.className = "zoom-range-ticks";
+    const tickMin = document.createElement("span");
+    tickMin.textContent = String(ZMIN);
+    const tickMax = document.createElement("span");
+    tickMax.textContent = String(ZMAX);
+    ticks.append(tickMin, tickMax);
+    wrap.appendChild(ticks);
+    section.appendChild(wrap);
+
+    const pctFor = (v) => ((v - ZMIN) / (ZMAX - ZMIN)) * 100;
+
+    function render() {
+      fill.style.left = `${pctFor(lo)}%`;
+      fill.style.width = `${pctFor(hi) - pctFor(lo)}%`;
+      thumbLo.thumb.style.left = `${pctFor(lo)}%`;
+      thumbHi.thumb.style.left = `${pctFor(hi)}%`;
+      thumbLo.thumb.setAttribute("aria-valuenow", String(lo));
+      thumbHi.thumb.setAttribute("aria-valuenow", String(hi));
+      thumbLo.value.textContent = String(lo);
+      thumbHi.value.textContent = String(hi);
+    }
+    render();
+
+    function commit() {
+      if (lo <= ZMIN) delete layer.minzoom; else layer.minzoom = lo;
+      if (hi >= ZMAX) delete layer.maxzoom; else layer.maxzoom = hi;
+      map.setLayerZoomRange(layer.id, layer.minzoom ?? ZMIN, layer.maxzoom ?? ZMAX);
       markLayerChecked(layer);
       refreshRawJson(layer);
-    };
-    minInput.addEventListener("change", commit);
-    maxInput.addEventListener("change", commit);
+    }
 
-    row.append(minLabel, minInput, maxLabel, maxInput);
-    section.appendChild(row);
+    function seek(handle, clientX) {
+      const rect = slider.getBoundingClientRect();
+      const t = rect.width === 0 ? 0 : Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const value = Math.round(ZMIN + t * (ZMAX - ZMIN));
+      if (handle === "lo") lo = Math.min(value, hi); else hi = Math.max(value, lo);
+      render();
+    }
+
+    function nearestHandle(clientX) {
+      const rect = slider.getBoundingClientRect();
+      const t = rect.width === 0 ? 0 : (clientX - rect.left) / rect.width;
+      const value = ZMIN + t * (ZMAX - ZMIN);
+      return Math.abs(value - lo) <= Math.abs(value - hi) ? "lo" : "hi";
+    }
+
+    // One set of pointer listeners on the whole slider (not per-thumb) - a track click jumps
+    // whichever handle is nearer and starts dragging it immediately, the usual "click anywhere on
+    // a range slider" affordance, without needing to duplicate the drag machinery per thumb.
+    let activeHandle = null;
+    slider.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      activeHandle = e.target === thumbHi.thumb ? "hi" : e.target === thumbLo.thumb ? "lo" : nearestHandle(e.clientX);
+      (activeHandle === "lo" ? thumbLo.thumb : thumbHi.thumb).focus();
+      slider.setPointerCapture(e.pointerId);
+      seek(activeHandle, e.clientX);
+      commit();
+    });
+    slider.addEventListener("pointermove", (e) => {
+      if (!activeHandle) return;
+      seek(activeHandle, e.clientX);
+      commit();
+    });
+    slider.addEventListener("pointerup", (e) => {
+      if (!activeHandle) return;
+      activeHandle = null;
+      slider.releasePointerCapture(e.pointerId);
+    });
+
+    function wireKeys(thumbEl, handle) {
+      thumbEl.addEventListener("keydown", (e) => {
+        const step = e.shiftKey ? 5 : 1;
+        let value = handle === "lo" ? lo : hi;
+        if (e.key === "ArrowRight" || e.key === "ArrowUp") value += step;
+        else if (e.key === "ArrowLeft" || e.key === "ArrowDown") value -= step;
+        else if (e.key === "Home") value = ZMIN;
+        else if (e.key === "End") value = ZMAX;
+        else return;
+        e.preventDefault();
+        value = Math.max(ZMIN, Math.min(ZMAX, value));
+        if (handle === "lo") lo = Math.min(value, hi); else hi = Math.max(value, lo);
+        render();
+        commit();
+      });
+    }
+    wireKeys(thumbLo.thumb, "lo");
+    wireKeys(thumbHi.thumb, "hi");
+
     return section;
   }
 
@@ -2568,12 +3001,17 @@ async function main() {
    * once at startup (disabled, no template loaded yet) and again every time loadBuild() runs. */
   function refreshDownloadOptions() {
     const opts = {
-      combined: { label: "Combined style", description: "One JSON file, everything merged." },
+      combined: {
+        label: "Combined style",
+        description: "One JSON file, everything merged.",
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/></svg>',
+      },
     };
     if (current && current.serviceOriginals) {
       opts.three = {
         label: "3 separate files",
         description: "VectorHillshade + LiteBase + LiteLabels, matching how UGRC hosts these.",
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.5 2H8.6c-.4 0-.8.2-1.1.5-.3.3-.5.7-.5 1.1v12.8c0 .4.2.8.5 1.1.3.3.7.5 1.1.5h9.8c.4 0 .8-.2 1.1-.5.3-.3.5-.7.5-1.1V6.5L15.5 2z"/><path d="M3 7.6v12.8c0 .4.2.8.5 1.1.3.3.7.5 1.1.5h9.8"/><path d="M15 2v5h5"/></svg>',
       };
     }
     downloadPick.setOptions(opts);
@@ -2670,19 +3108,28 @@ async function main() {
     }));
   }
 
-  /** Moves the shared NavigationControl between the live map's own top-right corner (comparing
-   * off) and the non-clipped sibling #compare-nav-control (comparing on) - see that element's CSS
-   * comment for why it can't just stay on #map's own corner once the compare slider starts
-   * clipping that container. Always bound to `map` itself (never the reference map), since `map`
-   * is always the live/editable side. */
-  function relocateNavControl(toShared) {
+  /** Moves a corner's controls between the live map's own corner (comparing off) and a non-clipped
+   * shared sibling (comparing on) - see that sibling's CSS comment for why controls can't just stay
+   * on #map's own corner once the compare slider starts clipping that container. Always bound to
+   * `map` itself (never the reference map), since `map` is always the live/editable side. Order is
+   * preserved both ways (`controls` is topmost/leftmost-first) so the stack reads identically in
+   * either spot. */
+  function relocateControls(controls, toShared, sharedEl, position) {
     if (toShared) {
-      map.removeControl(navControl);
-      compareNavControlEl.appendChild(navControl.onAdd(map));
+      for (const ctrl of controls) {
+        map.removeControl(ctrl);
+        sharedEl.appendChild(ctrl.onAdd(map));
+      }
     } else {
-      navControl.onRemove(map);
-      map.addControl(navControl, "top-right");
+      for (const ctrl of controls) {
+        ctrl.onRemove(map);
+        map.addControl(ctrl, position);
+      }
     }
+  }
+  function relocateTopControls(toShared) {
+    relocateControls(topLeftControls, toShared, compareSearchControlEl, "top-left");
+    relocateControls(topRightControls, toShared, compareNavControlEl, "top-right");
   }
 
   /** Applies a compare-picker selection: NONE_KEY tears the swipe view back down to a single map;
@@ -2693,7 +3140,7 @@ async function main() {
       if (compareInstance) {
         compareInstance.remove();
         compareInstance = null;
-        relocateNavControl(false);
+        relocateTopControls(false);
       }
       compareMapEl.hidden = true;
       return;
@@ -2702,18 +3149,25 @@ async function main() {
     const wasHidden = compareMapEl.hidden;
     compareMapEl.hidden = false;
     if (!compareMap) {
+      // Starts matched to `map`'s current camera (wherever a search/pan has already taken it),
+      // not the CENTER/ZOOM the editor itself opened on - maplibregl.Compare syncs the two from
+      // here on, but only once something actually moves one of them, so seeding a fixed default
+      // camera here would show a visibly wrong reference frame until the next pan.
       compareMap = new maplibregl.Map({
-        container: "compare-map", style, center: CENTER, zoom: ZOOM, attributionControl: false,
+        container: "compare-map", style,
+        center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(),
+        attributionControl: false,
       });
       compareMap.on("error", (e) => console.error("[compare] MapLibre error:", e && e.error));
       compareMap.on("mousemove", onMapPointerMove);
       compareMap.on("mouseout", onMapPointerOut);
+      if (lastGeocodeResultLngLat) setCompareResultMarker(lastGeocodeResultLngLat);
     } else {
       compareMap.setStyle(style);
       if (wasHidden) compareMap.resize();
     }
     if (!compareInstance) {
-      relocateNavControl(true);
+      relocateTopControls(true);
       compareInstance = new maplibregl.Compare(map, compareMap, "#map-wrap", {});
     }
   }
