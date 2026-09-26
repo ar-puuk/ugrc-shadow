@@ -1893,12 +1893,14 @@ async function main() {
   // variables (not just whatever addControl() creates internally) so relocateControls() below can
   // move these exact controls between the live map's own corners and the shared, never-clipped
   // #compare-search-control/#compare-nav-control siblings while comparing.
+  const GEOCODE_ZOOM = 16;
+  const GEOCODE_FLY_TO = { duration: 1500, maxZoom: GEOCODE_ZOOM };
   const geocoderControl = new MaplibreGeocoder(ugrcGeocoderApi, {
     maplibregl,
     placeholder: "Search address…",
     proximity: { longitude: CENTER[0], latitude: CENTER[1] },
-    zoom: 16,
-    flyTo: { duration: 1500, maxZoom: 16 },
+    zoom: GEOCODE_ZOOM,
+    flyTo: GEOCODE_FLY_TO,
     showResultsWhileTyping: true,
     minLength: 3,
     // The library's own built-in marker is owned by the control's onAdd/onRemove lifecycle, which
@@ -1907,6 +1909,14 @@ async function main() {
     // unrelated move. Disabled here in favor of managing our own markers directly (see
     // setLiveResultMarker/setCompareResultMarker below), independent of the control's lifecycle.
     marker: false,
+    // This is a SEPARATE marker mechanism from the one "marker: false" disables above - it draws a
+    // pin for every candidate a search returns, entirely inside _fitBoundsForMarkers()/
+    // _handleResultMarkers(), regardless of the "marker" option. Left on, it silently squats a stray
+    // pin on the live map for every UGRC address search (see the "results" listener below for why),
+    // in the library's own default color - #4668F2 - which is coincidentally identical to
+    // RESULT_MARKER_COLOR below, so it read as "our marker, but only on the live map" instead of the
+    // orphaned duplicate it actually was. Turned off in favor of our own marker/camera handling.
+    showResultMarkers: false,
   });
   map.addControl(geocoderControl, "top-left");
   // The geocoder's own suggestion-click handling (in its bundled Suggestions/List code) sets an
@@ -1969,10 +1979,58 @@ async function main() {
       ? new maplibregl.Marker({ color: RESULT_MARKER_COLOR }).setLngLat(lngLat).addTo(compareMap)
       : null;
   }
-  geocoderControl.on("result", ({ result }) => {
-    lastGeocodeResultLngLat = resultLngLat(result);
-    setLiveResultMarker(lastGeocodeResultLngLat);
-    setCompareResultMarker(lastGeocodeResultLngLat);
+  // maplibre-gl-compare's swipe handle is a fixed ~60px circle painted above BOTH maps (it has to
+  // stay clickable/draggable regardless of what's under it - see its z-index:1 in the imported
+  // stylesheet), and it always starts at the dead center of #map-wrap. A geocode result also lands
+  // exactly there by default, because searching flies the live map to center on it and compareMap
+  // is kept in sync - so left alone, the handle sits precisely on top of the fresh marker and hides
+  // it completely, reading as "the marker doesn't show up" until the user happens to drag the
+  // slider away first. Nudging the slider aside whenever that's about to happen keeps the marker
+  // visible without changing where the search actually centered the map.
+  function keepCompareSliderOffMarker() {
+    if (!compareInstance || !lastGeocodeResultLngLat) return;
+    // The geocoder's own result handling calls map.flyTo() and emits its "result" event in the
+    // same synchronous breath, well before that flight lands - project()ing the marker's lng/lat
+    // right now would still read the map's pre-search position, not where the marker (and the
+    // divider, which needs to dodge it) actually end up. Defer until the camera settles.
+    if (map.isMoving()) {
+      map.once("moveend", keepCompareSliderOffMarker);
+      return;
+    }
+    const width = document.getElementById("map-wrap").getBoundingClientRect().width;
+    const markerX = map.project(lastGeocodeResultLngLat).x;
+    const HANDLE_CLEARANCE = 40; // just enough to clear the handle's own ~60px diameter
+    if (Math.abs(markerX - compareInstance.currentPosition) < HANDLE_CLEARANCE) {
+      const nudged = markerX + (markerX < width / 2 ? HANDLE_CLEARANCE : -HANDLE_CLEARANCE);
+      compareInstance.setSlider(Math.min(Math.max(nudged, 0), width));
+    }
+  }
+  function completeGeocodeResult(lngLat) {
+    lastGeocodeResultLngLat = lngLat;
+    setLiveResultMarker(lngLat);
+    setCompareResultMarker(lngLat);
+    keepCompareSliderOffMarker();
+  }
+  // Only fires when the just-clicked suggestion already carried full geometry - true for our
+  // Nominatim fallback (used for POIs/places UGRC's own locator doesn't index), whose suggestions
+  // are already complete Features. _onChange() flies the map itself before emitting this.
+  geocoderControl.on("result", ({ result }) => completeGeocodeResult(resultLngLat(result)));
+  // A UGRC suggestion, by contrast, is placeId-only (see getSuggestions() below - coordinates are
+  // resolved lazily, once, only for whichever suggestion the user actually picks) and needs a
+  // second, async round trip through searchByPlaceId to get coordinates. maplibre-gl-geocoder
+  // never re-runs _onChange (and so never fires "result") once that round trip resolves - it just
+  // quietly refreshes the suggestion dropdown with the now-resolved candidate, so picking a real
+  // UGRC address silently did nothing: no marker on either map, no divider nudge, nothing, ever,
+  // for the single most common search in this app. "results" (always emitted, singular-or-not) is
+  // the only signal available for this path - a plain suggest() response is shaped {suggestions},
+  // so `features` is only ever populated here by an actual resolve (searchByPlaceId or
+  // forwardGeocode). Finish the job ourselves, including the flyTo that showResultMarkers used to
+  // trigger as a side effect before it was turned off (see its comment above).
+  geocoderControl.on("results", (res) => {
+    const lngLat = resultLngLat(res?.features?.[0]);
+    if (!lngLat) return;
+    map.flyTo({ ...GEOCODE_FLY_TO, zoom: GEOCODE_ZOOM, center: lngLat });
+    completeGeocodeResult(lngLat);
   });
   geocoderControl.on("clear", () => {
     lastGeocodeResultLngLat = null;
@@ -3534,19 +3592,19 @@ async function main() {
       // setInspectMode() already ran (if ever) before compareMap existed, so it never had a
       // chance to set this map's own cursor - assert it now if inspect mode is currently active.
       if (inspectMode) compareMap.getCanvas().style.cursor = "crosshair";
+      // Seed a freshly-created compareMap with whatever was already searched (a search-then-compare
+      // workflow), since it obviously wasn't around yet to receive setCompareResultMarker's own
+      // call when the "result"/"results" handler ran. compareMap is never torn down once created
+      // (switching to "None" just hides it), so this only ever needs to happen once, here.
+      if (lastGeocodeResultLngLat) setCompareResultMarker(lastGeocodeResultLngLat);
     } else {
       compareMap.setStyle(style);
       if (wasHidden) compareMap.resize();
     }
-    // Unconditional (not just on first creation) - a marker added the moment compareMap is
-    // constructed has occasionally failed to render for reasons that didn't reproduce under
-    // automated testing (possibly a layout/timing race in some browsers); re-asserting it on
-    // every call is cheap (setCompareResultMarker replaces any existing one) and self-heals
-    // regardless of the exact cause.
-    if (lastGeocodeResultLngLat) setCompareResultMarker(lastGeocodeResultLngLat);
     if (!compareInstance) {
       relocateOwnControls(true);
       compareInstance = new maplibregl.Compare(map, compareMap, "#map-wrap", {});
+      keepCompareSliderOffMarker();
     }
   }
 
